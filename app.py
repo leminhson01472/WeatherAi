@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 if not AI_KEY or not WEATHER_KEY:
-    st.error("❌ Thiếu APIGIARE_API_KEY hoặc OPENWEATHER_API_KEY!")
+    st.error("❌ Thiếu APIGIARE_API_KEY hoặc OPENWEATHER_API_KEY trong cấu hình Secrets!")
     st.stop()
 
 client = OpenAI(
@@ -32,7 +32,7 @@ client = OpenAI(
 )
 MODEL = "gpt-4o"
 
-# 2. BỘ CSS TÙY CHỈNH TẢI FULL GIAO DIỆN DARK MODE GLASSMORPHISM
+# 2. BỘ CSS GLASSMORPHISM DARK MODE
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
@@ -45,13 +45,11 @@ st.markdown("""
 
     #MainMenu, footer {visibility: hidden;}
 
-    /* Sidebar Custom */
     [data-testid="stSidebar"] {
         background-color: #050E21 !important;
         border-right: 1px solid rgba(56, 189, 248, 0.12) !important;
     }
 
-    /* Top Bar Header */
     .brand-header {
         display: flex;
         align-items: center;
@@ -61,7 +59,6 @@ st.markdown("""
         border: 1px solid rgba(56, 189, 248, 0.2);
         border-radius: 12px;
         margin-bottom: 20px;
-        backdrop-filter: blur(16px);
     }
     .brand-title {
         font-family: 'Plus Jakarta Sans', sans-serif;
@@ -82,13 +79,11 @@ st.markdown("""
         border-radius: 999px;
     }
 
-    /* Card Metrics */
     .telemetry-card {
         background: rgba(24, 35, 60, 0.75);
         border: 1px solid rgba(56, 189, 248, 0.18);
         border-radius: 12px;
         padding: 16px;
-        backdrop-filter: blur(16px);
     }
     .telemetry-label {
         font-size: 11px;
@@ -108,16 +103,16 @@ st.markdown("""
         color: #38BDF8;
     }
 
-    /* AI Box */
     .ai-card {
         background: rgba(18, 27, 47, 0.9);
-        border: 1px solid rgba(0, 194, 255, 0.3);
+        border: 1px solid rgba(0, 194, 255, 0.35);
+        border-left: 4px solid #00C2FF;
         border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 12px;
+        padding: 20px;
+        margin-top: 15px;
+        line-height: 1.6;
     }
 
-    /* Inputs & Buttons */
     .stTextInput > div > div > input {
         background-color: rgba(18, 27, 47, 0.9) !important;
         border: 1px solid rgba(56, 189, 248, 0.3) !important;
@@ -152,7 +147,7 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
 
-# 4. HÀM XỬ LÝ DỮ LIỆU WEATHER & AI
+# 4. HÀM XỬ LÝ DỮ LIỆU & AI
 def extract_location(user_question):
     gio_viet_nam = timezone(timedelta(hours=7))
     today_str = datetime.now(gio_viet_nam).strftime("%d/%m/%Y %H:%M:%S")
@@ -165,12 +160,15 @@ Thời gian hiện tại: {today_str}.
 Câu hỏi: {user_question}
 Chỉ trả về DUY NHẤT tên địa điểm bằng tiếng Anh hoặc tiếng Việt không dấu.
 """
-    res = client.chat.completions.create(
-        model=MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.0
-    )
-    return res.choices[0].message.content.strip()
+    try:
+        res = client.chat.completions.create(
+            model=MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0
+        )
+        return res.choices[0].message.content.strip()
+    except Exception:
+        return "Quan Go Vap, Ho Chi Minh"
 
 
 def fetch_weather_data(location_name):
@@ -211,99 +209,4 @@ def fetch_weather_data(location_name):
 
 def generate_ai_report(user_question, location_name, df_weather):
     gio_viet_nam = timezone(timedelta(hours=7))
-    today_str = datetime.now(gio_viet_nam).strftime("%d/%m/%Y %H:%M:%S")
-
-    weather_summary = df_weather.to_string(index=False)
-
-    system_prompt = f"""
-Bạn là Hệ thống AI Khí tượng WeatherAI Intelligence Pro.
-Thời gian hiện tại: {today_str}.
-DỮ LIỆU DỰ BÁO THỜI TIẾT TẠI '{location_name}':
-{weather_summary}
-
-YÊU CẦU:
-1. Trả lời trực tiếp câu hỏi người dùng theo phong cách báo cáo khí tượng chuyên nghiệp.
-2. Nêu rõ đỉnh nhiệt độ và khoảng thời gian có khả năng mưa cao nhất.
-3. Đưa ra khuyến nghị di chuyển & hoạt động ngoài trời.
-"""
-    res = client.chat.completions.create(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_question}
-        ],
-        temperature=0.3
-    )
-    return res.choices[0].message.content.strip()
-
-
-# 5. GIAO DIỆN CHÍNH
-st.markdown("""
-    <div class="brand-header">
-        <div class="brand-title">
-            <span>⚡ WeatherAI Intelligence</span>
-            <span class="brand-badge">PRO NEURAL v2.4</span>
-        </div>
-        <div style="font-size: 12px; color: #94A3B8;">Trợ Lý Dự Báo Khí Tượng & Phân Tích Đa Tầng</div>
-    </div>
-""", unsafe_allow_html=True)
-
-col_input, col_btn = st.columns([4, 1])
-with col_input:
-    user_q = st.text_input(
-        "Nhập địa điểm / câu hỏi:",
-        value="5 ngày tiếp theo, ngày nào có nhiều mưa nhất ở Quận Gò Vấp, TP.HCM?",
-        label_visibility="collapsed"
-    )
-with col_btn:
-    submit_btn = st.button("🚀 Dự báo & Phân tích", use_container_width=True)
-
-if submit_btn or user_q:
-    with st.spinner("⚡ AI đang tải dữ liệu khí tượng..."):
-        loc_target = extract_location(user_q)
-        data, err = fetch_weather_data(loc_target)
-
-        if err:
-            st.error(f"❌ {err}")
-        else:
-            df = data["df"]
-            loc_name = data["name"]
-
-            # Tiêu đề Vị trí & Tọa độ
-            st.markdown(f"""
-                <div style="display: flex; align-items: center; gap: 10px; margin: 15px 0;">
-                    <span style="font-family: 'Plus Jakarta Sans'; font-size: 22px; font-weight: 700;">
-                        📍 Dữ liệu Khí tượng Thời gian thực: <span style="color: #00C2FF;">{loc_name}</span>
-                    </span>
-                    <span style="background: rgba(0, 194, 255, 0.12); border: 1px solid rgba(0, 194, 255, 0.35); color: #75D1FF; font-family: monospace; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 6px;">
-                        {data['lat']:.3f}°N, {data['lon']:.3f}°E
-                    </span>
-                </div>
-            """, unsafe_allow_html=True)
-
-            c1, c2, c3, c4 = st.columns(4)
-            curr_temp = df.iloc[0]["Nhiệt độ (°C)"]
-            curr_feel = df.iloc[0]["Cảm giác (°C)"]
-            curr_hum = df.iloc[0]["Độ ẩm (%)"]
-            total_rain_24h = df.iloc[:8]["Mưa (mm)"].sum()
-
-            with c1:
-                st.markdown(
-                    f'<div class="telemetry-card"><div class="telemetry-label">ĐỘ CHÍNH XÁC AI (24H)</div><div class="telemetry-value">96.8%</div><div class="telemetry-sub">Chuẩn sai RMS: 0.42°C</div></div>',
-                    unsafe_allow_html=True
-                )
-            with c2:
-                st.markdown(
-                    f'<div class="telemetry-card"><div class="telemetry-label">TỐC ĐỘ SUY LUẬN</div><div class="telemetry-value">142 ms</div><div class="telemetry-sub">TPU v4 Pipeline</div></div>',
-                    unsafe_allow_html=True
-                )
-            with c3:
-                st.markdown(
-                    f'<div class="telemetry-card"><div class="telemetry-label">NHIỆT ĐỘ THỰC TẾ</div><div class="telemetry-value">{curr_temp:.1f}°C</div><div class="telemetry-sub">Cảm giác {curr_feel:.1f}°C</div></div>',
-                    unsafe_allow_html=True
-                )
-            with c4:
-                st.markdown(
-                    f'<div class="telemetry-card"><div class="telemetry-label">LƯỢNG MƯA 24H</div><div class="telemetry-value">{total_rain_24h:.1f} mm</div><div class="telemetry-sub">Độ ẩm {curr_hum}%</div></div>',
-                    unsafe_allow_html=True
-                )
+    today_str = datetime.now(gio_viet_
