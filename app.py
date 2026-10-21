@@ -376,7 +376,7 @@ if submit_btn or user_q:
                 yaxis="y2"
             ))
 
-            fig.update_layout(
+        fig.update_layout(
                 template="plotly_dark",
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(10, 19, 39, 0.6)",
@@ -384,4 +384,6 @@ if submit_btn or user_q:
                 height=380,
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                 xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)"),
-                yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor="rgba(255,255,2
+                yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor="rgba(255,255,255,0.05)"),
+                yaxis2=dict(title="Lượng mưa (mm)", overlaying="y", side="right", showgrid=False)
+            )
