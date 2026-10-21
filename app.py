@@ -138,12 +138,12 @@ st.markdown("""
 # ==========================================
 with st.sidebar:
     st.markdown("### ⚡ KHÍ TƯỢNG VI MÔ")
-    st.markdown("— **🌐 Tổng quan trạm**")
-    st.markdown("— **🛰️ Bản đồ Radar & Vệ tinh**")
-    st.markdown("— <span style='color:#00C2FF; font-weight:bold;'>📊 Dự báo & Phân tích 5 Ngày</span>", unsafe_allow_html=True)
-    st.markdown("— **⚠️ Cảnh báo bão & dông**")
-    st.markdown("— **📜 Nhật ký suy luận AI**")
-    st.markdown("— **⚙️ Cấu hình API & Model**")
+    st.markdown("— **🌐 Tổng quan trạm** *(chưa khả dụng)*")
+    st.markdown("— **🛰️ Bản đồ Radar & Vệ tinh** *(chưa khả dụng)*")
+    st.markdown("— <span style='color:#00C2FF; font-weight:bold;'>📊 Dự báo & Phân tích</span>", unsafe_allow_html=True)
+    st.markdown("— **⚠️ Cảnh báo bão & dông** *(chưa khả dụng)*")
+    st.markdown("— **📜 Nhật ký suy luận AI** *(chưa khả dụng)*")
+    st.markdown("— **⚙️ Cấu hình API & Model** *(chưa khả dụng)*")
     st.write("---")
     st.markdown("""
         <div style="background: rgba(18,27,47,0.8); padding: 12px; border-radius: 10px; border: 1px solid rgba(0,194,255,0.2);">
@@ -247,7 +247,7 @@ YÊU CẦU:
 
 
 # ==========================================
-# 5. GIAO DIỆN CHÍNH & TỰ ĐỘNG THỰC THI
+# 5. GIAO DIỆN CHÍNH
 # ==========================================
 st.markdown("""
     <div class="brand-header">
@@ -269,75 +269,76 @@ with col_input:
 with col_btn:
     submit_btn = st.button("🚀 Dự báo & Phân tích", use_container_width=True)
 
-# Tự động thực thi ngay cả khi chưa nhấn nút hoặc khi vừa nhập xong
-with st.spinner("⚡ AI đang kết nối dữ liệu khí tượng..."):
-    loc_target = extract_location(user_q) if user_q else "Quan Go Vap, Ho Chi Minh"
-    data, err = fetch_weather_data(loc_target)
+# Chỉ chạy khi người dùng thực sự bấm nút "🚀 Dự báo & Phân tích"
+if submit_btn:
+    with st.spinner("⚡ AI đang kết nối dữ liệu khí tượng..."):
+        loc_target = extract_location(user_q) if user_q else "Quan Go Vap, Ho Chi Minh"
+        data, err = fetch_weather_data(loc_target)
 
-    if err:
-        st.error(f"❌ {err}")
-    else:
-        df = data["df"]
-        loc_name = data["name"]
+        if err:
+            st.error(f"❌ {err}")
+        else:
+            df = data["df"]
+            loc_name = data["name"]
 
-        # Tiêu đề Vị trí & Tọa độ
-        st.markdown(f"""
-            <div style="display: flex; align-items: center; gap: 10px; margin: 15px 0;">
-                <span style="font-family: 'Plus Jakarta Sans'; font-size: 22px; font-weight: 700;">
-                    📍 Dữ liệu Khí tượng Thời gian thực: <span style="color: #00C2FF;">{loc_name}</span>
-                </span>
-                <span style="background: rgba(0, 194, 255, 0.12); border: 1px solid rgba(0, 194, 255, 0.35); color: #75D1FF; font-family: monospace; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 6px;">
-                    {data['lat']:.3f}°N, {data['lon']:.3f}°E
-                </span>
-            </div>
-        """, unsafe_allow_html=True)
+            # Tiêu đề Vị trí & Tọa độ
+            st.markdown(f"""
+                <div style="display: flex; align-items: center; gap: 10px; margin: 15px 0;">
+                    <span style="font-family: 'Plus Jakarta Sans'; font-size: 22px; font-weight: 700;">
+                        📍 Dữ liệu Khí tượng Thời gian thực: <span style="color: #00C2FF;">{loc_name}</span>
+                    </span>
+                    <span style="background: rgba(0, 194, 255, 0.12); border: 1px solid rgba(0, 194, 255, 0.35); color: #75D1FF; font-family: monospace; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 6px;">
+                        {data['lat']:.3f}°N, {data['lon']:.3f}°E
+                    </span>
+                </div>
+            """, unsafe_allow_html=True)
 
-        # 4 Thẻ Telemetry Cards
-        c1, c2, c3, c4 = st.columns(4)
-        curr_temp = df.iloc[0]["Nhiệt độ (°C)"]
-        curr_feel = df.iloc[0]["Cảm giác (°C)"]
-        curr_hum = df.iloc[0]["Độ ẩm (%)"]
-        total_rain_24h = df.iloc[:8]["Mưa (mm)"].sum()
+            # 4 Thẻ Telemetry Cards
+            c1, c2, c3, c4 = st.columns(4)
+            curr_temp = df.iloc[0]["Nhiệt độ (°C)"]
+            curr_feel = df.iloc[0]["Cảm giác (°C)"]
+            curr_hum = df.iloc[0]["Độ ẩm (%)"]
+            total_rain_24h = df.iloc[:8]["Mưa (mm)"].sum()
 
-        with c1:
-            st.markdown('<div class="telemetry-card"><div class="telemetry-label">ĐỘ CHÍNH XÁC AI (24H)</div><div class="telemetry-value">96.8%</div><div class="telemetry-sub">Chuẩn sai RMS: 0.42°C</div></div>', unsafe_allow_html=True)
-        with c2:
-            st.markdown('<div class="telemetry-card"><div class="telemetry-label">TỐC ĐỘ SUY LUẬN</div><div class="telemetry-value">142 ms</div><div class="telemetry-sub">TPU v4 Pipeline</div></div>', unsafe_allow_html=True)
-        with c3:
-            st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">NHIỆT ĐỘ THỰC TẾ</div><div class="telemetry-value">{curr_temp:.1f}°C</div><div class="telemetry-sub">Cảm giác {curr_feel:.1f}°C</div></div>', unsafe_allow_html=True)
-        with c4:
-            st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">LƯỢNG MƯA 24H</div><div class="telemetry-value">{total_rain_24h:.1f} mm</div><div class="telemetry-sub">Độ ẩm {curr_hum}%</div></div>', unsafe_allow_html=True)
+            with c1:
+                st.markdown('<div class="telemetry-card"><div class="telemetry-label">ĐỘ CHÍNH XÁC AI (24H)</div><div class="telemetry-value">96.8%</div><div class="telemetry-sub">Chuẩn sai RMS: 0.42°C</div></div>', unsafe_allow_html=True)
+            with c2:
+                st.markdown('<div class="telemetry-card"><div class="telemetry-label">TỐC ĐỘ SUY LUẬN</div><div class="telemetry-value">142 ms</div><div class="telemetry-sub">TPU v4 Pipeline</div></div>', unsafe_allow_html=True)
+            with c3:
+                st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">NHIỆT ĐỘ THỰC TẾ</div><div class="telemetry-value">{curr_temp:.1f}°C</div><div class="telemetry-sub">Cảm giác {curr_feel:.1f}°C</div></div>', unsafe_allow_html=True)
+            with c4:
+                st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">LƯỢNG MƯA 24H</div><div class="telemetry-value">{total_rain_24h:.1f} mm</div><div class="telemetry-sub">Độ ẩm {curr_hum}%</div></div>', unsafe_allow_html=True)
 
-        st.write("")
+            st.write("")
 
-        # Biểu đồ Plotly Đa Tầng Khí Quyển
-        st.subheader("📈 Biểu đồ Đa Tầng Khí Quyển 24 Giờ Tiếp Theo")
+            # Biểu đồ Plotly Đa Tầng Khí Quyển
+            st.subheader("📈 Biểu đồ Đa Tầng Khí Quyển 24 Giờ Tiếp Theo")
 
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=df["Thời gian"], y=df["Nhiệt độ (°C)"],
-            mode="lines+markers", name="Nhiệt độ (°C)",
-            line=dict(color="#00C2FF", width=3)
-        ))
-        fig.add_trace(go.Bar(
-            x=df["Thời gian"], y=df["Mưa (mm)"],
-            name="Lượng mưa (mm)", marker_color="rgba(56, 189, 248, 0.5)",
-            yaxis="y2"
-        ))
-        fig.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(10, 19, 39, 0.6)",
-            margin=dict(l=20, r=20, t=30, b=20),
-            height=380,
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.08)"),
-            yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor="rgba(255,255,255,0.08)"),
-            yaxis2=dict(title="Lượng mưa (mm)", overlaying="y", side="right", showgrid=False)
-        )
-        st.plotly_chart(fig, use_container_width=True)
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=df["Thời gian"], y=df["Nhiệt độ (°C)"],
+                mode="lines+markers", name="Nhiệt độ (°C)",
+                line=dict(color="#00C2FF", width=3)
+            ))
+            fig.add_trace(go.Bar(
+                x=df["Thời gian"], y=df["Mưa (mm)"],
+                name="Lượng mưa (mm)", marker_color="rgba(56, 189, 248, 0.5)",
+                yaxis="y2"
+            ))
+            fig.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(10, 19, 39, 0.6)",
+                margin=dict(l=20, r=20, t=30, b=20),
+                height=380,
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.08)"),
+                yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor="rgba(255,255,255,0.08)"),
+                yaxis2=dict(title="Lượng mưa (mm)", overlaying="y", side="right", showgrid=False)
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-        # Báo cáo AI Suy Luận
-        st.subheader("🤖 Chi Tiết Dự Báo Chu Kỳ 5 Ngày & Suy Luận AI")
-        report = generate_ai_report(user_q, loc_name, df)
-        st.markdown(f'<div class="ai-card">{report}</div>', unsafe_allow_html=True)
+            # Báo cáo AI Suy Luận
+            st.subheader("🤖 Chi Tiết Dự Báo & Suy Luận AI")
+            report = generate_ai_report(user_q, loc_name, df)
+            st.markdown(f'<div class="ai-card">{report}</div>', unsafe_allow_html=True)
