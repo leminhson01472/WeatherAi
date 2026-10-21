@@ -7,128 +7,20 @@ import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# 1. CẤU HÌNH HỆ THỐNG & API KEY
+# 1. CẤU HÌNH HỆ THỐNG & API KEY (Local + Streamlit Cloud)
 load_dotenv()
 
 AI_KEY = os.getenv("APIGIARE_API_KEY") or (st.secrets.get("APIGIARE_API_KEY") if "APIGIARE_API_KEY" in st.secrets else None)
 WEATHER_KEY = os.getenv("OPENWEATHER_API_KEY") or (st.secrets.get("OPENWEATHER_API_KEY") if "OPENWEATHER_API_KEY" in st.secrets else None)
 
 st.set_page_config(
-    page_title="WeatherAI Intelligence Pro",
+    page_title="WeatherAI Intelligence PRO",
     page_icon="⚡",
     layout="wide"
 )
 
-# 2. BỘ CSS TÙY CHỈNH THEO DESIGN SYSTEM (ATMOSPHERE INTELLIGENCE)
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
-
-    html, body, [data-testid="stAppViewContainer"] {
-        background-color: #0A1327 !important;
-        color: #F8FAFC;
-        font-family: 'Inter', sans-serif;
-    }
-
-    h1, h2, h3, h4 {
-        font-family: 'Plus Jakarta Sans', sans-serif !important;
-    }
-
-    /* Top Bar Header */
-    .brand-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 12px 20px;
-        background: rgba(18, 27, 47, 0.8);
-        border: 1px solid rgba(56, 189, 248, 0.16);
-        border-radius: 12px;
-        margin-bottom: 20px;
-        backdrop-filter: blur(12px);
-    }
-    .brand-title {
-        font-size: 20px;
-        font-weight: 800;
-        color: #F8FAFC;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    .brand-badge {
-        background: rgba(0, 194, 255, 0.15);
-        border: 1px solid rgba(0, 194, 255, 0.4);
-        color: #00C2FF;
-        font-size: 11px;
-        font-weight: 700;
-        padding: 2px 8px;
-        border-radius: 999px;
-    }
-
-    /* Telemetry Metric Cards */
-    .telemetry-card {
-        background: rgba(24, 35, 60, 0.7);
-        border: 1px solid rgba(56, 189, 248, 0.18);
-        border-radius: 12px;
-        padding: 16px;
-        backdrop-filter: blur(16px);
-        box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.5);
-    }
-    .telemetry-label {
-        font-size: 11px;
-        font-weight: 600;
-        color: #94A3B8;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-    .telemetry-value {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        font-size: 28px;
-        font-weight: 700;
-        color: #F8FAFC;
-        margin: 6px 0;
-    }
-    .telemetry-sub {
-        font-size: 12px;
-        color: #00C2FF;
-        font-weight: 500;
-    }
-
-    /* AI Analysis Callout Box */
-    .ai-box {
-        background: rgba(18, 27, 47, 0.9);
-        border: 1px solid rgba(0, 194, 255, 0.35);
-        border-left: 4px solid #00C2FF;
-        border-radius: 12px;
-        padding: 18px;
-        margin-top: 15px;
-        box-shadow: 0 0 20px rgba(0, 194, 255, 0.08);
-    }
-
-    /* Custom Input and Buttons */
-    .stTextInput > div > div > input {
-        background-color: rgba(18, 27, 47, 0.85) !important;
-        border: 1px solid rgba(56, 189, 248, 0.25) !important;
-        color: #F8FAFC !important;
-        border-radius: 8px !important;
-    }
-    .stButton > button {
-        background: linear-gradient(135deg, #00C2FF 0%, #0284C7 100%) !important;
-        color: #0A1327 !important;
-        font-weight: 700 !important;
-        border: none !important;
-        border-radius: 8px !important;
-        transition: all 0.3s ease !important;
-    }
-    .stButton > button:hover {
-        box-shadow: 0 0 16px rgba(0, 194, 255, 0.5) !important;
-        transform: translateY(-1px);
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# 3. KẾT NỐI OPENAI (APIGIARE)
 if not AI_KEY or not WEATHER_KEY:
-    st.error("❌ Thiếu APIGIARE_API_KEY hoặc OPENWEATHER_API_KEY trong cấu hình!")
+    st.error("❌ Thiếu APIGIARE_API_KEY hoặc OPENWEATHER_API_KEY trong file .env hoặc Secrets!")
     st.stop()
 
 client = OpenAI(
@@ -139,8 +31,154 @@ client = OpenAI(
 )
 MODEL = "gpt-4o"
 
+# 2. BỘ CSS TÙY CHỈNH CHUẨN ĐỊNH DẠNG DESIGN (ATMOSPHERE INTELLIGENCE)
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
 
-# 4. HÀM XỬ LÝ DỮ LIỆU & AI
+    /* Nền toàn bộ trang web */
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+        background-color: #0A1327 !important;
+        color: #F8FAFC !important;
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* Ẩn bớt thành phần dư thừa của Streamlit */
+    #MainMenu, footer {visibility: hidden;}
+
+    /* Thanh Header chính */
+    .brand-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 24px;
+        background: rgba(18, 27, 47, 0.85);
+        border: 1px solid rgba(56, 189, 248, 0.2);
+        border-radius: 12px;
+        margin-bottom: 24px;
+        backdrop-filter: blur(16px);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+    .brand-title {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 22px;
+        font-weight: 800;
+        color: #F8FAFC;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .brand-badge {
+        background: rgba(0, 194, 255, 0.15);
+        border: 1px solid rgba(0, 194, 255, 0.4);
+        color: #00C2FF;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 999px;
+        letter-spacing: 0.05em;
+    }
+
+    /* Tiêu đề vị trí & Tọa độ */
+    .location-container {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin: 20px 0 16px 0;
+    }
+    .location-title {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 22px;
+        font-weight: 700;
+        color: #F8FAFC;
+    }
+    .location-highlight {
+        color: #00C2FF;
+    }
+    .coord-badge {
+        background: rgba(0, 194, 255, 0.12);
+        border: 1px solid rgba(0, 194, 255, 0.35);
+        color: #75D1FF;
+        font-family: 'Inter', monospace;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 4px 12px;
+        border-radius: 6px;
+        box-shadow: 0 0 12px rgba(0, 194, 255, 0.15);
+    }
+
+    /* Khung Thẻ Telemetry Cards */
+    .telemetry-card {
+        background: rgba(24, 35, 60, 0.75);
+        border: 1px solid rgba(56, 189, 248, 0.18);
+        border-radius: 12px;
+        padding: 18px;
+        backdrop-filter: blur(16px);
+        box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.5);
+    }
+    .telemetry-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: #94A3B8;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+    .telemetry-value {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 28px;
+        font-weight: 700;
+        color: #F8FAFC;
+        margin: 8px 0;
+    }
+    .telemetry-sub {
+        font-size: 12px;
+        color: #38BDF8;
+        font-weight: 500;
+    }
+
+    /* Báo cáo AI Callout Box */
+    .ai-box {
+        background: rgba(18, 27, 47, 0.9);
+        border: 1px solid rgba(0, 194, 255, 0.35);
+        border-left: 4px solid #00C2FF;
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 15px;
+        box-shadow: 0 0 24px rgba(0, 194, 255, 0.08);
+        line-height: 1.6;
+    }
+
+    /* Tùy chỉnh Khung tìm kiếm & Nút bấm */
+    .stTextInput > div > div > input {
+        background-color: rgba(18, 27, 47, 0.9) !important;
+        border: 1px solid rgba(56, 189, 248, 0.3) !important;
+        color: #F8FAFC !important;
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
+    }
+    .stTextInput > div > div > input:focus {
+        border-color: #00C2FF !important;
+        box-shadow: 0 0 10px rgba(0, 194, 255, 0.3) !important;
+    }
+    .stButton > button {
+        background: linear-gradient(135deg, #00C2FF 0%, #0284C7 100%) !important;
+        color: #0A1327 !important;
+        font-weight: 700 !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 10px 20px !important;
+        transition: all 0.3s ease !important;
+    }
+    .stButton > button:hover {
+        box-shadow: 0 0 18px rgba(0, 194, 255, 0.6) !important;
+        transform: translateY(-1px);
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+
+# 3. CÁC HÀM XỬ LÝ DỮ LIỆU & AI
 def extract_location(user_question):
     gio_viet_nam = timezone(timedelta(hours=7))
     today_str = datetime.now(gio_viet_nam).strftime("%d/%m/%Y %H:%M:%S")
@@ -179,7 +217,7 @@ def fetch_weather_data(location_name):
     forecast_res = requests.get(forecast_url, timeout=10).json()
 
     if forecast_res.get("cod") != "200":
-        return None, "Lỗi kết nối tới dịch vụ thời tiết OpenWeatherMap."
+        return None, "Lỗi kết nối tới dịch vụ OpenWeatherMap."
 
     records = []
     for item in forecast_res["list"]:
@@ -209,11 +247,11 @@ Thời gian hiện tại: {today_str}.
 DỮ LIỆU DỰ BÁO THỜI TIẾT TẠI '{location_name}':
 {weather_summary}
 
-YÊU CẦU:
-1. Trả lời trực tiếp câu hỏi người dùng theo phong cách báo cáo khí tượng chuyên nghiệp, hiện đại.
-2. Tổng hợp rõ các khoảng thời gian mưa nhiều, đỉnh điểm nhiệt độ.
-3. Đưa ra 2 khuyến nghị cụ thể: (1) Giao thông & Di chuyển; (2) Hoạt động ngoài trời.
-4. Trình bày bằng Markdown sạch sẽ, sử dụng bullet point và emoji.
+YÊU CẦU TRẢ LỜI:
+1. Trả lời trực tiếp câu hỏi người dùng theo phong cách báo cáo khí tượng hiện đại, ngắn gọn.
+2. Nêu rõ khung giờ/ngày mưa nhiều nhất và biến động nhiệt độ.
+3. Đưa ra 2 khuyến nghị thực tế: (1) Giao thông & Di chuyển; (2) Hoạt động ngoài trời.
+4. Trình bày bằng Markdown sạch đẹp có emoji sinh động.
 """
     res = client.chat.completions.create(
         model=MODEL,
@@ -226,30 +264,32 @@ YÊU CẦU:
     return res.choices[0].message.content.strip()
 
 
-# 5. GIAO DIỆN NGƯỜI DÙNG (STREAMLIT HEADER & LAYOUT)
+# 4. GIAO DIỆN NGƯỜI DÙNG (STREAMLIT HEADER & LAYOUT)
+
+# Header Top Bar
 st.markdown("""
     <div class="brand-header">
         <div class="brand-title">
             <span>⚡ WeatherAI Intelligence</span>
             <span class="brand-badge">PRO NEURAL v2.4</span>
         </div>
-        <div style="font-size: 12px; color: #94A3B8;">Trợ Lý Dự Báo Khí Tượng & Phân Tích Đa Tầng</div>
+        <div style="font-size: 13px; color: #94A3B8;">Trợ Lý Dự Báo Khí Tượng & Phân Tích Đa Tầng</div>
     </div>
 """, unsafe_allow_html=True)
 
-# Khung tìm kiếm
+# Khung nhập câu hỏi / tìm kiếm
 col_input, col_btn = st.columns([4, 1])
 with col_input:
     user_q = st.text_input(
-        "Nhập vị trí hoặc câu hỏi thời tiết:",
+        "Nhập câu hỏi hoặc địa điểm:",
         value="5 ngày tiếp theo, ngày nào có nhiều mưa nhất ở Quận Gò Vấp, TP.HCM?",
         label_visibility="collapsed"
     )
 with col_btn:
-    submit_btn = st.button("🚀 Run Forecast", use_container_width=True)
+    submit_btn = st.button("🚀 Dự báo & Phân tích", use_container_width=True)
 
 if submit_btn or user_q:
-    with st.spinner("⚡ AI đang phân tích dữ liệu khí tượng đa tầng..."):
+    with st.spinner("⚡ AI đang kết nối OpenWeatherMap & Phân tích..."):
         loc_target = extract_location(user_q)
         data, err = fetch_weather_data(loc_target)
 
@@ -259,9 +299,15 @@ if submit_btn or user_q:
             df = data["df"]
             loc_name = data["name"]
 
-            # 1. Thẻ chỉ số Telemetry góc trên
-            st.markdown(f"### 📍 Dữ liệu Khí tượng Thời gian thực: **{loc_name}** (`{data['lat']:.3f}°N, {data['lon']:.3f}°E`)")
-            
+            # 1. Tiêu đề Vị trí & Tọa độ (Đã sửa triệt để lỗi hiển thị)
+            st.markdown(f"""
+                <div class="location-container">
+                    <span class="location-title">📍 Dữ liệu Khí tượng Thời gian thực: <span class="location-highlight">{loc_name}</span></span>
+                    <span class="coord-badge">{data['lat']:.3f}°N, {data['lon']:.3f}°E</span>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # 2. Thẻ chỉ số Telemetry Cards
             c1, c2, c3, c4 = st.columns(4)
             curr_temp = df.iloc[0]["Nhiệt độ (°C)"]
             curr_feel = df.iloc[0]["Cảm giác (°C)"]
@@ -300,18 +346,18 @@ if submit_btn or user_q:
                 <div class="telemetry-card">
                     <div class="telemetry-label">ĐỘ CHÍNH XÁC MÔ HÌNH</div>
                     <div class="telemetry-value" style="color:#10B981;">98.4%</div>
-                    <div class="telemetry-sub">Độ trễ suy luận: 142ms</div>
+                    <div class="telemetry-sub">Suy luận GPT-4o Realtime</div>
                 </div>
                 """, unsafe_allow_html=True)
 
             st.write("")
 
-            # 2. Biểu đồ Atmospheric Chart (Plotly Dark Theme)
+            # 3. Biểu đồ Plotly (Chuẩn tông Cyber Dark Mode)
             st.subheader("📈 Diễn biến Nhiệt độ & Lượng mưa (5 Ngày tiếp theo)")
-            
+
             fig = go.Figure()
-            
-            # Đường Nhiệt độ (Cyan Neon)
+
+            # Đường Nhiệt độ Cyan Neon
             fig.add_trace(go.Scatter(
                 x=df["Thời gian"],
                 y=df["Nhiệt độ (°C)"],
@@ -321,35 +367,21 @@ if submit_btn or user_q:
                 marker=dict(size=6, color="#00C2FF")
             ))
 
-            # Cột Lượng mưa (Blue/Purple Bar)
+            # Cột Lượng mưa Sky Blue
             fig.add_trace(go.Bar(
                 x=df["Thời gian"],
                 y=df["Mưa (mm)"],
                 name="Lượng mưa (mm)",
-                marker_color="rgba(56, 189, 248, 0.4)",
+                marker_color="rgba(56, 189, 248, 0.45)",
                 yaxis="y2"
             ))
 
             fig.update_layout(
                 template="plotly_dark",
                 paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(10, 19, 39, 0.5)",
+                plot_bgcolor="rgba(10, 19, 39, 0.6)",
                 margin=dict(l=20, r=20, t=30, b=20),
                 height=380,
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                 xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)"),
-                yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor="rgba(255,255,255,0.05)"),
-                yaxis2=dict(title="Lượng mưa (mm)", overlaying="y", side="right", showgrid=False)
-            )
-
-            st.plotly_chart(fig, use_container_width=True)
-
-            # 3. Phân tích AI & Khuyến nghị
-            st.subheader("🤖 AI Suy Luận & Khuyến Nghị Tác Chiến")
-            report = generate_ai_report(user_q, loc_name, df)
-            
-            st.markdown(f"""
-            <div class="ai-box">
-                {report}
-            </div>
-            """, unsafe_allow_html=True)
+                yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor="rgba(255,255,2
