@@ -263,16 +263,19 @@ col_input, col_btn = st.columns([4, 1])
 with col_input:
     user_q = st.text_input(
         "Nhập địa điểm / câu hỏi:",
-        value="5 ngày tiếp theo, ngày nào có nhiều mưa nhất ở Quận Gò Vấp, TP.HCM?",
+        value="",
+        placeholder="5 ngày tiếp theo, ngày nào có nhiều mưa nhất ở Quận Gò Vấp, TP.HCM?",
         label_visibility="collapsed"
     )
 with col_btn:
     submit_btn = st.button("🚀 Dự báo & Phân tích", use_container_width=True)
 
-# Chỉ chạy khi người dùng thực sự bấm nút "🚀 Dự báo & Phân tích"
+# Chỉ kích hoạt xử lý khi người dùng nhấn nút
 if submit_btn:
+    query_text = user_q.strip() if user_q.strip() else "5 ngày tiếp theo, ngày nào có nhiều mưa nhất ở Quận Gò Vấp, TP.HCM?"
+
     with st.spinner("⚡ AI đang kết nối dữ liệu khí tượng..."):
-        loc_target = extract_location(user_q) if user_q else "Quan Go Vap, Ho Chi Minh"
+        loc_target = extract_location(query_text)
         data, err = fetch_weather_data(loc_target)
 
         if err:
@@ -340,5 +343,5 @@ if submit_btn:
 
             # Báo cáo AI Suy Luận
             st.subheader("🤖 Chi Tiết Dự Báo & Suy Luận AI")
-            report = generate_ai_report(user_q, loc_name, df)
+            report = generate_ai_report(query_text, loc_name, df)
             st.markdown(f'<div class="ai-card">{report}</div>', unsafe_allow_html=True)
