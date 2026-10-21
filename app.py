@@ -281,7 +281,6 @@ if submit_btn or user_q:
                 </div>
             """, unsafe_allow_html=True)
 
-            # 4 Thẻ Telemetry
            c1, c2, c3, c4 = st.columns(4)
             curr_temp = df.iloc[0]["Nhiệt độ (°C)"]
             curr_feel = df.iloc[0]["Cảm giác (°C)"]
