@@ -376,7 +376,7 @@ if submit_btn or user_q:
                 yaxis="y2"
             ))
 
-        fig.update_layout(
+            fig.update_layout(
                 template="plotly_dark",
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(10, 19, 39, 0.6)",
