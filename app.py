@@ -282,11 +282,29 @@ if submit_btn or user_q:
             """, unsafe_allow_html=True)
 
             # 4 Thẻ Telemetry
-            c1, c2, c3, c4 = st.columns(4)
+           c1, c2, c3, c4 = st.columns(4)
             curr_temp = df.iloc[0]["Nhiệt độ (°C)"]
             curr_feel = df.iloc[0]["Cảm giác (°C)"]
             curr_hum = df.iloc[0]["Độ ẩm (%)"]
             total_rain_24h = df.iloc[:8]["Mưa (mm)"].sum()
 
             with c1:
-                st.markdown(f"""<div class="telemetry-card"><div class="telemetry-label">ĐỘ CHÍNH XÁC AI (24H)</div><div class="telemetry-value">96.8%</div><div class="telemetry
+                st.markdown(
+                    f'<div class="telemetry-card"><div class="telemetry-label">ĐỘ CHÍNH XÁC AI (24H)</div><div class="telemetry-value">96.8%</div><div class="telemetry-sub">Chuẩn sai RMS: 0.42°C</div></div>',
+                    unsafe_allow_html=True
+                )
+            with c2:
+                st.markdown(
+                    f'<div class="telemetry-card"><div class="telemetry-label">TỐC ĐỘ SUY LUẬN</div><div class="telemetry-value">142 ms</div><div class="telemetry-sub">TPU v4 Pipeline</div></div>',
+                    unsafe_allow_html=True
+                )
+            with c3:
+                st.markdown(
+                    f'<div class="telemetry-card"><div class="telemetry-label">NHIỆT ĐỘ THỰC TẾ</div><div class="telemetry-value">{curr_temp:.1f}°C</div><div class="telemetry-sub">Cảm giác {curr_feel:.1f}°C</div></div>',
+                    unsafe_allow_html=True
+                )
+            with c4:
+                st.markdown(
+                    f'<div class="telemetry-card"><div class="telemetry-label">LƯỢNG MƯA 24H</div><div class="telemetry-value">{total_rain_24h:.1f} mm</div><div class="telemetry-sub">Độ ẩm {curr_hum}%</div></div>',
+                    unsafe_allow_html=True
+                )
