@@ -7,7 +7,6 @@ import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# 1. CẤU HÌNH HỆ THỐNG & API KEY (Local + Streamlit Cloud)
 load_dotenv()
 
 AI_KEY = os.getenv("APIGIARE_API_KEY") or (st.secrets.get("APIGIARE_API_KEY") if "APIGIARE_API_KEY" in st.secrets else None)
@@ -352,30 +351,30 @@ if submit_btn or user_q:
 
             st.write("")
 
-            # 3. Biểu đồ Plotly (Chuẩn tông Cyber Dark Mode)
             st.subheader("📈 Diễn biến Nhiệt độ & Lượng mưa (5 Ngày tiếp theo)")
 
             fig = go.Figure()
 
-            # Đường Nhiệt độ Cyan Neon
+            # Đường Nhiệt độ (Cyan Neon)
             fig.add_trace(go.Scatter(
                 x=df["Thời gian"],
                 y=df["Nhiệt độ (°C)"],
                 mode="lines+markers",
                 name="Nhiệt độ (°C)",
-                line=dict(color="#00C2FF", width=3, shape="spline"),
+                line=dict(color="#00C2FF", width=3),
                 marker=dict(size=6, color="#00C2FF")
             ))
 
-            # Cột Lượng mưa Sky Blue
+            # Cột Lượng mưa (Sky Blue)
             fig.add_trace(go.Bar(
                 x=df["Thời gian"],
                 y=df["Mưa (mm)"],
                 name="Lượng mưa (mm)",
-                marker_color="rgba(56, 189, 248, 0.45)",
+                marker_color="rgba(56, 189, 248, 0.5)",
                 yaxis="y2"
             ))
 
+            # Cấu hình giao diện tối cho biểu đồ
             fig.update_layout(
                 template="plotly_dark",
                 paper_bgcolor="rgba(0,0,0,0)",
@@ -383,7 +382,10 @@ if submit_btn or user_q:
                 margin=dict(l=20, r=20, t=30, b=20),
                 height=380,
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)"),
-                yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor="rgba(255,255,255,0.05)"),
+                xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.08)"),
+                yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor="rgba(255,255,255,0.08)"),
                 yaxis2=dict(title="Lượng mưa (mm)", overlaying="y", side="right", showgrid=False)
             )
+
+            # Lệnh bắt buộc để vẽ biểu đồ ra giao diện Streamlit
+            st.plotly_chart(fig, use_container_width=True)
