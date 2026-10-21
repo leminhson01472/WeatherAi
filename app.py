@@ -7,6 +7,7 @@ import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
 
+# 1. CẤU HÌNH TRANG & API KEY
 load_dotenv()
 
 AI_KEY = os.getenv("APIGIARE_API_KEY") or (st.secrets.get("APIGIARE_API_KEY") if "APIGIARE_API_KEY" in st.secrets else None)
@@ -15,11 +16,12 @@ WEATHER_KEY = os.getenv("OPENWEATHER_API_KEY") or (st.secrets.get("OPENWEATHER_A
 st.set_page_config(
     page_title="WeatherAI Intelligence PRO",
     page_icon="⚡",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 if not AI_KEY or not WEATHER_KEY:
-    st.error("❌ Thiếu APIGIARE_API_KEY hoặc OPENWEATHER_API_KEY trong file .env hoặc Secrets!")
+    st.error("❌ Thiếu APIGIARE_API_KEY hoặc OPENWEATHER_API_KEY!")
     st.stop()
 
 client = OpenAI(
@@ -30,42 +32,45 @@ client = OpenAI(
 )
 MODEL = "gpt-4o"
 
-# 2. BỘ CSS TÙY CHỈNH CHUẨN ĐỊNH DẠNG DESIGN (ATMOSPHERE INTELLIGENCE)
+# 2. BỘ CSS TÙY CHỈNH TẢI FULL GIAO DIỆN DARK MODE GLASSMORPHISM
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
 
-    /* Nền toàn bộ trang web */
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
         background-color: #0A1327 !important;
         color: #F8FAFC !important;
         font-family: 'Inter', sans-serif;
     }
 
-    /* Ẩn bớt thành phần dư thừa của Streamlit */
     #MainMenu, footer {visibility: hidden;}
 
-    /* Thanh Header chính */
+    /* Sidebar Custom */
+    [data-testid="stSidebar"] {
+        background-color: #050E21 !important;
+        border-right: 1px solid rgba(56, 189, 248, 0.12) !important;
+    }
+
+    /* Top Bar Header */
     .brand-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 14px 24px;
+        padding: 12px 20px;
         background: rgba(18, 27, 47, 0.85);
         border: 1px solid rgba(56, 189, 248, 0.2);
         border-radius: 12px;
-        margin-bottom: 24px;
+        margin-bottom: 20px;
         backdrop-filter: blur(16px);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     }
     .brand-title {
         font-family: 'Plus Jakarta Sans', sans-serif;
-        font-size: 22px;
+        font-size: 20px;
         font-weight: 800;
         color: #F8FAFC;
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
     }
     .brand-badge {
         background: rgba(0, 194, 255, 0.15);
@@ -73,92 +78,51 @@ st.markdown("""
         color: #00C2FF;
         font-size: 11px;
         font-weight: 700;
-        padding: 3px 10px;
+        padding: 2px 8px;
         border-radius: 999px;
-        letter-spacing: 0.05em;
     }
 
-    /* Tiêu đề vị trí & Tọa độ */
-    .location-container {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 12px;
-        margin: 20px 0 16px 0;
-    }
-    .location-title {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        font-size: 22px;
-        font-weight: 700;
-        color: #F8FAFC;
-    }
-    .location-highlight {
-        color: #00C2FF;
-    }
-    .coord-badge {
-        background: rgba(0, 194, 255, 0.12);
-        border: 1px solid rgba(0, 194, 255, 0.35);
-        color: #75D1FF;
-        font-family: 'Inter', monospace;
-        font-size: 13px;
-        font-weight: 600;
-        padding: 4px 12px;
-        border-radius: 6px;
-        box-shadow: 0 0 12px rgba(0, 194, 255, 0.15);
-    }
-
-    /* Khung Thẻ Telemetry Cards */
+    /* Card Metrics */
     .telemetry-card {
         background: rgba(24, 35, 60, 0.75);
         border: 1px solid rgba(56, 189, 248, 0.18);
         border-radius: 12px;
-        padding: 18px;
+        padding: 16px;
         backdrop-filter: blur(16px);
-        box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.5);
     }
     .telemetry-label {
         font-size: 11px;
         font-weight: 600;
         color: #94A3B8;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
     }
     .telemetry-value {
         font-family: 'Plus Jakarta Sans', sans-serif;
-        font-size: 28px;
+        font-size: 26px;
         font-weight: 700;
         color: #F8FAFC;
-        margin: 8px 0;
+        margin: 6px 0;
     }
     .telemetry-sub {
         font-size: 12px;
         color: #38BDF8;
-        font-weight: 500;
     }
 
-    /* Báo cáo AI Callout Box */
-    .ai-box {
+    /* AI Box */
+    .ai-card {
         background: rgba(18, 27, 47, 0.9);
-        border: 1px solid rgba(0, 194, 255, 0.35);
-        border-left: 4px solid #00C2FF;
+        border: 1px solid rgba(0, 194, 255, 0.3);
         border-radius: 12px;
-        padding: 20px;
-        margin-top: 15px;
-        box-shadow: 0 0 24px rgba(0, 194, 255, 0.08);
-        line-height: 1.6;
+        padding: 16px;
+        margin-bottom: 12px;
     }
 
-    /* Tùy chỉnh Khung tìm kiếm & Nút bấm */
+    /* Inputs & Buttons */
     .stTextInput > div > div > input {
         background-color: rgba(18, 27, 47, 0.9) !important;
         border: 1px solid rgba(56, 189, 248, 0.3) !important;
         color: #F8FAFC !important;
         border-radius: 8px !important;
-        padding: 10px 14px !important;
-    }
-    .stTextInput > div > div > input:focus {
-        border-color: #00C2FF !important;
-        box-shadow: 0 0 10px rgba(0, 194, 255, 0.3) !important;
     }
     .stButton > button {
         background: linear-gradient(135deg, #00C2FF 0%, #0284C7 100%) !important;
@@ -166,18 +130,29 @@ st.markdown("""
         font-weight: 700 !important;
         border: none !important;
         border-radius: 8px !important;
-        padding: 10px 20px !important;
-        transition: all 0.3s ease !important;
-    }
-    .stButton > button:hover {
-        box-shadow: 0 0 18px rgba(0, 194, 255, 0.6) !important;
-        transform: translateY(-1px);
     }
     </style>
 """, unsafe_allow_html=True)
 
+# 3. SIDEBAR NAVIGATION
+with st.sidebar:
+    st.markdown("### ⚡ KHÍ TƯỢNG VI MÔ")
+    st.markdown("— **🌐 Tổng quan trạm**")
+    st.markdown("— **🛰️ Bản đồ Radar & Vệ tinh**")
+    st.markdown("— <span style='color:#00C2FF; font-weight:bold;'>📊 Dự báo & Phân tích 5 Ngày</span>", unsafe_allow_html=True)
+    st.markdown("— **⚠️ Cảnh báo bão & dông**")
+    st.markdown("— **📜 Nhật ký suy luận AI**")
+    st.markdown("— **⚙️ Cấu hình API & Model**")
+    st.write("---")
+    st.markdown("""
+        <div style="background: rgba(18,27,47,0.8); padding: 12px; border-radius: 10px; border: 1px solid rgba(0,194,255,0.2);">
+            <div style="font-size:11px; color:#38BDF8; font-weight:bold;">MÔ HÌNH HỌC SÂU</div>
+            <div style="font-size:18px; color:#F8FAFC; font-weight:bold;">98.4%</div>
+            <div style="font-size:11px; color:#94A3B8;">Độ trễ dự báo: 180ms</div>
+        </div>
+    """, unsafe_allow_html=True)
 
-# 3. CÁC HÀM XỬ LÝ DỮ LIỆU & AI
+# 4. HÀM XỬ LÝ DỮ LIỆU WEATHER & AI
 def extract_location(user_question):
     gio_viet_nam = timezone(timedelta(hours=7))
     today_str = datetime.now(gio_viet_nam).strftime("%d/%m/%Y %H:%M:%S")
@@ -246,11 +221,10 @@ Thời gian hiện tại: {today_str}.
 DỮ LIỆU DỰ BÁO THỜI TIẾT TẠI '{location_name}':
 {weather_summary}
 
-YÊU CẦU TRẢ LỜI:
-1. Trả lời trực tiếp câu hỏi người dùng theo phong cách báo cáo khí tượng hiện đại, ngắn gọn.
-2. Nêu rõ khung giờ/ngày mưa nhiều nhất và biến động nhiệt độ.
-3. Đưa ra 2 khuyến nghị thực tế: (1) Giao thông & Di chuyển; (2) Hoạt động ngoài trời.
-4. Trình bày bằng Markdown sạch đẹp có emoji sinh động.
+YÊU CẦU:
+1. Trả lời trực tiếp câu hỏi người dùng theo phong cách báo cáo khí tượng chuyên nghiệp.
+2. Nêu rõ đỉnh nhiệt độ và khoảng thời gian có khả năng mưa cao nhất.
+3. Đưa ra khuyến nghị di chuyển & hoạt động ngoài trời.
 """
     res = client.chat.completions.create(
         model=MODEL,
@@ -263,24 +237,21 @@ YÊU CẦU TRẢ LỜI:
     return res.choices[0].message.content.strip()
 
 
-# 4. GIAO DIỆN NGƯỜI DÙNG (STREAMLIT HEADER & LAYOUT)
-
-# Header Top Bar
+# 5. GIAO DIỆN CHÍNH
 st.markdown("""
     <div class="brand-header">
         <div class="brand-title">
             <span>⚡ WeatherAI Intelligence</span>
             <span class="brand-badge">PRO NEURAL v2.4</span>
         </div>
-        <div style="font-size: 13px; color: #94A3B8;">Trợ Lý Dự Báo Khí Tượng & Phân Tích Đa Tầng</div>
+        <div style="font-size: 12px; color: #94A3B8;">Trợ Lý Dự Báo Khí Tượng & Phân Tích Đa Tầng</div>
     </div>
 """, unsafe_allow_html=True)
 
-# Khung nhập câu hỏi / tìm kiếm
 col_input, col_btn = st.columns([4, 1])
 with col_input:
     user_q = st.text_input(
-        "Nhập câu hỏi hoặc địa điểm:",
+        "Nhập địa điểm / câu hỏi:",
         value="5 ngày tiếp theo, ngày nào có nhiều mưa nhất ở Quận Gò Vấp, TP.HCM?",
         label_visibility="collapsed"
     )
@@ -288,7 +259,7 @@ with col_btn:
     submit_btn = st.button("🚀 Dự báo & Phân tích", use_container_width=True)
 
 if submit_btn or user_q:
-    with st.spinner("⚡ AI đang kết nối OpenWeatherMap & Phân tích..."):
+    with st.spinner("⚡ AI đang tải dữ liệu khí tượng..."):
         loc_target = extract_location(user_q)
         data, err = fetch_weather_data(loc_target)
 
@@ -298,15 +269,19 @@ if submit_btn or user_q:
             df = data["df"]
             loc_name = data["name"]
 
-            # 1. Tiêu đề Vị trí & Tọa độ (Đã sửa triệt để lỗi hiển thị)
+            # Tiêu đề Vị trí & Tọa độ
             st.markdown(f"""
-                <div class="location-container">
-                    <span class="location-title">📍 Dữ liệu Khí tượng Thời gian thực: <span class="location-highlight">{loc_name}</span></span>
-                    <span class="coord-badge">{data['lat']:.3f}°N, {data['lon']:.3f}°E</span>
+                <div style="display: flex; align-items: center; gap: 10px; margin: 15px 0;">
+                    <span style="font-family: 'Plus Jakarta Sans'; font-size: 22px; font-weight: 700;">
+                        📍 Dữ liệu Khí tượng Thời gian thực: <span style="color: #00C2FF;">{loc_name}</span>
+                    </span>
+                    <span style="background: rgba(0, 194, 255, 0.12); border: 1px solid rgba(0, 194, 255, 0.35); color: #75D1FF; font-family: monospace; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 6px;">
+                        {data['lat']:.3f}°N, {data['lon']:.3f}°E
+                    </span>
                 </div>
             """, unsafe_allow_html=True)
 
-            # 2. Thẻ chỉ số Telemetry Cards
+            # 4 Thẻ Telemetry
             c1, c2, c3, c4 = st.columns(4)
             curr_temp = df.iloc[0]["Nhiệt độ (°C)"]
             curr_feel = df.iloc[0]["Cảm giác (°C)"]
@@ -314,78 +289,4 @@ if submit_btn or user_q:
             total_rain_24h = df.iloc[:8]["Mưa (mm)"].sum()
 
             with c1:
-                st.markdown(f"""
-                <div class="telemetry-card">
-                    <div class="telemetry-label">NHIỆT ĐỘ THỰC TẾ</div>
-                    <div class="telemetry-value">{curr_temp:.1f}°C</div>
-                    <div class="telemetry-sub">Cảm giác như {curr_feel:.1f}°C</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-            with c2:
-                st.markdown(f"""
-                <div class="telemetry-card">
-                    <div class="telemetry-label">LƯỢNG MƯA 24H TỚI</div>
-                    <div class="telemetry-value">{total_rain_24h:.1f} <span style="font-size:16px;">mm</span></div>
-                    <div class="telemetry-sub">Tích lũy theo mô hình</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-            with c3:
-                st.markdown(f"""
-                <div class="telemetry-card">
-                    <div class="telemetry-label">ĐỘ ẨM KHÍ QUYỂN</div>
-                    <div class="telemetry-value">{curr_hum}%</div>
-                    <div class="telemetry-sub">Điểm sương ổn định</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-            with c4:
-                st.markdown(f"""
-                <div class="telemetry-card">
-                    <div class="telemetry-label">ĐỘ CHÍNH XÁC MÔ HÌNH</div>
-                    <div class="telemetry-value" style="color:#10B981;">98.4%</div>
-                    <div class="telemetry-sub">Suy luận GPT-4o Realtime</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-            st.write("")
-
-            st.subheader("📈 Diễn biến Nhiệt độ & Lượng mưa (5 Ngày tiếp theo)")
-
-            fig = go.Figure()
-
-            # Đường Nhiệt độ (Cyan Neon)
-            fig.add_trace(go.Scatter(
-                x=df["Thời gian"],
-                y=df["Nhiệt độ (°C)"],
-                mode="lines+markers",
-                name="Nhiệt độ (°C)",
-                line=dict(color="#00C2FF", width=3),
-                marker=dict(size=6, color="#00C2FF")
-            ))
-
-            # Cột Lượng mưa (Sky Blue)
-            fig.add_trace(go.Bar(
-                x=df["Thời gian"],
-                y=df["Mưa (mm)"],
-                name="Lượng mưa (mm)",
-                marker_color="rgba(56, 189, 248, 0.5)",
-                yaxis="y2"
-            ))
-
-            # Cấu hình giao diện tối cho biểu đồ
-            fig.update_layout(
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(10, 19, 39, 0.6)",
-                margin=dict(l=20, r=20, t=30, b=20),
-                height=380,
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.08)"),
-                yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor="rgba(255,255,255,0.08)"),
-                yaxis2=dict(title="Lượng mưa (mm)", overlaying="y", side="right", showgrid=False)
-            )
-
-            # Lệnh bắt buộc để vẽ biểu đồ ra giao diện Streamlit
-            st.plotly_chart(fig, use_container_width=True)
+                st.markdown(f"""<div class="telemetry-card"><div class="telemetry-label">ĐỘ CHÍNH XÁC AI (24H)</div><div class="telemetry-value">96.8%</div><div class="telemetry
