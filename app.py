@@ -7,10 +7,10 @@ import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# 1. CẤU HÌNH HỆ THỐNG & API KEY
 load_dotenv()
-AI_KEY = os.getenv("APIGIARE_API_KEY")
-WEATHER_KEY = os.getenv("OPENWEATHER_API_KEY")
+
+AI_KEY = os.getenv("APIGIARE_API_KEY") or st.secrets.get("APIGIARE_API_KEY")
+WEATHER_KEY = os.getenv("OPENWEATHER_API_KEY") or st.secrets.get("OPENWEATHER_API_KEY")
 
 if not AI_KEY:
     st.error("❌ Thiếu APIGIARE_API_KEY trong file .env")
