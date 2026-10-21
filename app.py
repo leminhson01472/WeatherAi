@@ -345,3 +345,76 @@ if submit_btn:
             st.subheader("🤖 Chi Tiết Dự Báo & Suy Luận AI")
             report = generate_ai_report(query_text, loc_name, df)
             st.markdown(f'<div class="ai-card">{report}</div>', unsafe_allow_html=True)
+# ==========================================
+# TRỢ LÝ LINH VẬT GÓC MÀN HÌNH (CHAT BUBBLE MASCOT)
+# ==========================================
+st.markdown("""
+    <style>
+    /* Khung chứa linh vật cố định góc dưới bên trái */
+    .mascot-container {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    /* Bóng thoại chat bubble */
+    .mascot-bubble {
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+        border: 1px solid rgba(0, 194, 255, 0.4);
+        border-radius: 16px;
+        padding: 10px 16px;
+        color: #F8FAFC;
+        font-size: 13px;
+        font-weight: 600;
+        box-shadow: 0 8px 32px rgba(0, 194, 255, 0.2);
+        backdrop-filter: blur(8px);
+        margin-bottom: 8px;
+        position: relative;
+        max-width: 220px;
+    }
+
+    /* Mũi nhọn bóng thoại trỏ xuống linh vật */
+    .mascot-bubble::after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        left: 24px;
+        width: 0;
+        height: 0;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 8px solid rgba(15, 23, 42, 0.95);
+    }
+
+    /* Hình ảnh / Avatar linh vật */
+    .mascot-avatar {
+        width: 65px;
+        height: 65px;
+        filter: drop-shadow(0 0 10px rgba(0, 194, 255, 0.6));
+        transition: transform 0.2s ease;
+        cursor: pointer;
+    }
+    .mascot-avatar:hover {
+        transform: scale(1.15) rotate(5deg);
+    }
+
+    /* Hiệu ứng bồng bềnh (floating) */
+    @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-8px); }
+        100% { transform: translateY(0px); }
+    }
+    </style>
+
+    <div class="mascot-container">
+        <div class="mascot-bubble">
+            ⚡ Đồng đội cày thời tiết của bạn đã sẵn sàng! Xông lên thôi 🚀
+        </div>
+        <img class="mascot-avatar" src="https://api.iconify.design/fluent-emoji:robot.svg" alt="WeatherAI Mascot">
+    </div>
+""", unsafe_allow_html=True)
