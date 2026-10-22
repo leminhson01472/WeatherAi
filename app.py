@@ -156,20 +156,17 @@ with st.sidebar:
 # ==========================================
 # 4. HÀM XỬ LÝ DỮ LIỆU & AI
 # ==========================================
-def extract_location_and_time(user_question):
-    gio_viet_nam = timezone(timedelta(hours=7))
-    today_str = datetime.now(gio_viet_nam).strftime("%d/%m/%Y %H:%M:%S")
-
+def parse_user_intent(user_question):
     prompt = f"""
-Nhiệm vụ 1: Trích xuất tên Tỉnh/Thành phố hoặc Huyện lớn nhất từ câu hỏi người dùng. (Ví dụ: 'Thôn Tiên Châu' -> 'Tuy An, Dak Lak').
-Nhiệm vụ 2: Phân tích khoảng thời gian người dùng muốn xem (quy ra SỐ GIỜ).
-- Nếu hỏi "24h", "hôm nay", "ngày mai", "sáng nay", "tối nay" -> 24
-- Nếu hỏi "48h", "2 ngày" -> 48
-- Nếu hỏi "3 ngày" -> 72
-- Nếu hỏi "5 ngày", "tuần này", hoặc không nói rõ thời gian -> 120
+Phân tích câu hỏi người dùng và trả về định dạng JSON/Text ngắn gọn:
+1. Ý định (is_weather): Trả về 'WEATHER' nếu người dùng hỏi tra cứu thời tiết/lượng mưa/nhiệt độ ở đâu đó hoặc khoảng thời gian nào đó. Trả về 'CHAT' nếu chỉ là câu chào hỏi, tán gẫu, hỏi đáp chung không yêu cầu tra cứu thời tiết cụ thể.
+2. Tên địa điểm (location): Tên Tỉnh/Thành/Huyện (hoặc 'Quan Go Vap, Ho Chi Minh' nếu không nói địa điểm).
+3. Khoảng thời gian (hours): Số giờ cần xem (24, 48, 72, 120). Mặc định là 120 nếu không rõ.
 
-Chỉ trả về DUY NHẤT theo định dạng: TÊN_ĐỊA_ĐIỂM|SỐ_GIỜ
-Ví dụ: Quan Go Vap, Ho Chi Minh|24
+Chỉ trả về 1 dòng duy nhất theo định dạng: LOẠI|TÊN_ĐỊA_ĐIỂM|SỐ_GIỜ
+Ví dụ 1: WEATHER|Quan Go Vap, Ho Chi Minh|24
+Ví dụ 2: CHAT|NONE|0
+
 Câu hỏi: {user_question}
 """
     try:
@@ -180,11 +177,12 @@ Câu hỏi: {user_question}
         ).choices[0].message.content.strip()
         
         parts = res.split("|")
-        if len(parts) == 2:
-            return parts[0].strip(), int(parts[1].strip())
-        return res.replace("|", ""), 120
+        intent_type = parts[0].strip().upper() if len(parts) > 0 else "CHAT"
+        loc = parts[1].strip() if len(parts) > 1 else "Quan Go Vap, Ho Chi Minh"
+        hrs = int(parts[2].strip()) if (len(parts) > 2 and parts[2].strip().isdigit()) else 120
+        return intent_type, loc, hrs
     except Exception:
-        return "Quan Go Vap, Ho Chi Minh", 120
+        return "CHAT", "Quan Go Vap, Ho Chi Minh", 120
 
 
 def fetch_weather_data(location_name):
@@ -238,6 +236,22 @@ def fetch_weather_data(location_name):
 
     df = pd.DataFrame(records)
     return {"name": display_name, "df": df, "lat": lat, "lon": lon}, None
+
+
+def generate_general_chat(user_question):
+    system_prompt = "Bạn là Trợ lý AI WeatherAI thân thiện, thông minh. Hãy trò chuyện tự nhiên, lịch sự với người dùng. Nếu người dùng không hỏi về thời tiết, tuyệt đối KHÔNG phân tích dự báo thời tiết hay nhắc tới dữ liệu khí tượng."
+    try:
+        res = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_question}
+            ],
+            temperature=0.7
+        )
+        return res.choices[0].message.content.strip()
+    except Exception as e:
+        return f"⚠️ Lỗi khởi tạo AI: {str(e)}"
 
 
 def generate_ai_report(user_question, location_name, df_weather, target_hours):
@@ -300,76 +314,84 @@ with col_btn:
 if submit_btn:
     query_text = user_q.strip() if user_q.strip() else "5 ngày tiếp theo, ngày nào có nhiều mưa nhất ở Quận Gò Vấp, TP.HCM?"
 
-    with st.spinner("⚡ AI đang kết nối dữ liệu khí tượng..."):
-        loc_target, target_hours = extract_location_and_time(query_text)
-        data, err = fetch_weather_data(loc_target)
+    with st.spinner("⚡ WeatherAI đang xử lý..."):
+        intent_type, loc_target, target_hours = parse_user_intent(query_text)
 
-        if err:
-            st.error(f"❌ {err}")
+        # XỬ LÝ KHI NGƯỜI DÙNG CHỈ TÁN GẪU / TRÒ CHUYỆN BÌNH THƯỜNG
+        if intent_type == "CHAT":
+            chat_reply = generate_general_chat(query_text)
+            st.markdown(f'<div class="ai-card">{chat_reply}</div>', unsafe_allow_html=True)
+
+        # XỬ LÝ KHI NGƯỜI DÙNG HỎI DỰ BÁO THỜI TIẾT
         else:
-            df = data["df"]
-            loc_name = data["name"]
+            data, err = fetch_weather_data(loc_target)
 
-            num_rows = max(1, target_hours // 3)
-            df_filtered = df.head(num_rows)
+            if err:
+                st.error(f"❌ {err}")
+            else:
+                df = data["df"]
+                loc_name = data["name"]
 
-            st.markdown(f"""
-                <div style="display: flex; align-items: center; gap: 10px; margin: 15px 0;">
-                    <span style="font-family: 'Plus Jakarta Sans'; font-size: 22px; font-weight: 700;">
-                        📍 Dữ liệu Khí tượng Thời gian thực: <span style="color: #00C2FF;">{loc_name}</span>
-                    </span>
-                    <span style="background: rgba(0, 194, 255, 0.12); border: 1px solid rgba(0, 194, 255, 0.35); color: #75D1FF; font-family: monospace; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 6px;">
-                        {data['lat']:.3f}°N, {data['lon']:.3f}°E
-                    </span>
-                </div>
-            """, unsafe_allow_html=True)
+                num_rows = max(1, target_hours // 3)
+                df_filtered = df.head(num_rows)
 
-            c1, c2, c3, c4 = st.columns(4)
-            curr_temp = df.iloc[0]["Nhiệt độ (°C)"]
-            curr_feel = df.iloc[0]["Cảm giác (°C)"]
-            curr_hum = df.iloc[0]["Độ ẩm (%)"]
-            total_rain_24h = df.head(8)["Mưa (mm)"].sum()
+                st.markdown(f"""
+                    <div style="display: flex; align-items: center; gap: 10px; margin: 15px 0;">
+                        <span style="font-family: 'Plus Jakarta Sans'; font-size: 22px; font-weight: 700;">
+                            📍 Dữ liệu Khí tượng Thời gian thực: <span style="color: #00C2FF;">{loc_name}</span>
+                        </span>
+                        <span style="background: rgba(0, 194, 255, 0.12); border: 1px solid rgba(0, 194, 255, 0.35); color: #75D1FF; font-family: monospace; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 6px;">
+                            {data['lat']:.3f}°N, {data['lon']:.3f}°E
+                        </span>
+                    </div>
+                """, unsafe_allow_html=True)
 
-            with c1:
-                st.markdown('<div class="telemetry-card"><div class="telemetry-label">ĐỘ CHÍNH XÁC AI (24H)</div><div class="telemetry-value">96.8%</div><div class="telemetry-sub">Chuẩn sai RMS: 0.42°C</div></div>', unsafe_allow_html=True)
-            with c2:
-                st.markdown('<div class="telemetry-card"><div class="telemetry-label">TỐC ĐỘ SUY LUẬN</div><div class="telemetry-value">142 ms</div><div class="telemetry-sub">TPU v4 Pipeline</div></div>', unsafe_allow_html=True)
-            with c3:
-                st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">NHIỆT ĐỘ THỰC TẾ</div><div class="telemetry-value">{curr_temp:.1f}°C</div><div class="telemetry-sub">Cảm giác {curr_feel:.1f}°C</div></div>', unsafe_allow_html=True)
-            with c4:
-                st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">LƯỢNG MƯA 24H</div><div class="telemetry-value">{total_rain_24h:.1f} mm</div><div class="telemetry-sub">Độ ẩm {curr_hum}%</div></div>', unsafe_allow_html=True)
+                c1, c2, c3, c4 = st.columns(4)
+                curr_temp = df.iloc[0]["Nhiệt độ (°C)"]
+                curr_feel = df.iloc[0]["Cảm giác (°C)"]
+                curr_hum = df.iloc[0]["Độ ẩm (%)"]
+                total_rain_24h = df.head(8)["Mưa (mm)"].sum()
 
-            st.write("")
+                with c1:
+                    st.markdown('<div class="telemetry-card"><div class="telemetry-label">ĐỘ CHÍNH XÁC AI (24H)</div><div class="telemetry-value">96.8%</div><div class="telemetry-sub">Chuẩn sai RMS: 0.42°C</div></div>', unsafe_allow_html=True)
+                with c2:
+                    st.markdown('<div class="telemetry-card"><div class="telemetry-label">TỐC ĐỘ SUY LUẬN</div><div class="telemetry-value">142 ms</div><div class="telemetry-sub">TPU v4 Pipeline</div></div>', unsafe_allow_html=True)
+                with c3:
+                    st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">NHIỆT ĐỘ THỰC TẾ</div><div class="telemetry-value">{curr_temp:.1f}°C</div><div class="telemetry-sub">Cảm giác {curr_feel:.1f}°C</div></div>', unsafe_allow_html=True)
+                with c4:
+                    st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">LƯỢNG MƯA 24H</div><div class="telemetry-value">{total_rain_24h:.1f} mm</div><div class="telemetry-sub">Độ ẩm {curr_hum}%</div></div>', unsafe_allow_html=True)
 
-            st.subheader(f"📈 Biểu đồ Khí Quyển ({target_hours} Giờ Tiếp Theo)")
+                st.write("")
 
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=df_filtered["Thời gian"], y=df_filtered["Nhiệt độ (°C)"],
-                mode="lines+markers", name="Nhiệt độ (°C)",
-                line=dict(color="#00C2FF", width=3)
-            ))
-            fig.add_trace(go.Bar(
-                x=df_filtered["Thời gian"], y=df_filtered["Mưa (mm)"],
-                name="Lượng mưa (mm)", marker_color="rgba(56, 189, 248, 0.5)",
-                yaxis="y2"
-            ))
-            
-            fig.update_layout(
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(10, 19, 39, 0.6)",
-                margin=dict(l=20, r=20, t=30, b=20),
-                height=380,
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                dragmode=False,
-                xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.08)", fixedrange=True),
-                yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor="rgba(255,255,255,0.08)", fixedrange=True),
-                yaxis2=dict(title="Lượng mưa (mm)", overlaying="y", side="right", showgrid=False, fixedrange=True)
-            )
-            
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                st.subheader(f"📈 Biểu đồ Khí Quyển ({target_hours} Giờ Tiếp Theo)")
 
-            st.subheader("🤖 Chi Tiết Dự Báo & Suy Luận AI")
-            report = generate_ai_report(query_text, loc_name, df_filtered, target_hours)
-            st.markdown(f'<div class="ai-card">{report}</div>', unsafe_allow_html=True)
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=df_filtered["Thời gian"], y=df_filtered["Nhiệt độ (°C)"],
+                    mode="lines+markers", name="Nhiệt độ (°C)",
+                    line=dict(color="#00C2FF", width=3)
+                ))
+                fig.add_trace(go.Bar(
+                    x=df_filtered["Thời gian"], y=df_filtered["Mưa (mm)"],
+                    name="Lượng mưa (mm)", marker_color="rgba(56, 189, 248, 0.5)",
+                    yaxis="y2"
+                ))
+                
+                fig.update_layout(
+                    template="plotly_dark",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(10, 19, 39, 0.6)",
+                    margin=dict(l=20, r=20, t=30, b=20),
+                    height=380,
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    dragmode=False,
+                    xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.08)", fixedrange=True),
+                    yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor="rgba(255,255,255,0.08)", fixedrange=True),
+                    yaxis2=dict(title="Lượng mưa (mm)", overlaying="y", side="right", showgrid=False, fixedrange=True)
+                )
+                
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+                st.subheader("🤖 Chi Tiết Dự Báo & Suy Luận AI")
+                report = generate_ai_report(query_text, loc_name, df_filtered, target_hours)
+                st.markdown(f'<div class="ai-card">{report}</div>', unsafe_allow_html=True)
