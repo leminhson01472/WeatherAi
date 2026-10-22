@@ -589,4 +589,29 @@ else:
                     fig.add_trace(go.Scatter(
                         x=df_filtered["Thời gian"], y=df_filtered["Nhiệt độ (°C)"],
                         mode="lines+markers", name="Nhiệt độ (°C)",
-                        line=dict(color=line_col
+                        line=dict(color=line_col, width=3)
+                    ))
+                    fig.add_trace(go.Bar(
+                        x=df_filtered["Thời gian"], y=df_filtered["Mưa (mm)"],
+                        name="Lượng mưa (mm)", marker_color=bar_col,
+                        yaxis="y2"
+                    ))
+                    
+                    fig.update_layout(
+                        template="plotly_dark" if is_dark else "plotly_white",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor=bg_col,
+                        margin=dict(l=20, r=20, t=30, b=20),
+                        height=360,
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                        dragmode=False,
+                        xaxis=dict(showgrid=True, gridcolor=grid_col, fixedrange=True),
+                        yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor=grid_col, fixedrange=True),
+                        yaxis2=dict(title="Lượng mưa (mm)", overlaying="y", side="right", showgrid=False, fixedrange=True)
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+                    st.subheader("🤖 Phân tích AI")
+                    report = generate_ai_report(query_text, loc_name, df_filtered, target_hours)
+                    st.markdown(f'<div class="ai-card">{report}</div>', unsafe_allow_html=True)
