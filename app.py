@@ -346,7 +346,7 @@ if submit_btn:
             report = generate_ai_report(query_text, loc_name, df)
             st.markdown(f'<div class="ai-card">{report}</div>', unsafe_allow_html=True)
 # ==========================================
-# TRỢ LÝ LINH VẬT GÓC MÀN HÌNH (CHAT BUBBLE MASCOT)
+# TRỢ LÝ MÈO BÉO (CHAT BUBBLE MASCOT)
 # ==========================================
 st.markdown("""
     <style>
@@ -383,7 +383,7 @@ st.markdown("""
         content: '';
         position: absolute;
         bottom: -8px;
-        left: 24px;
+        left: 20px;
         width: 0;
         height: 0;
         border-left: 8px solid transparent;
@@ -391,10 +391,10 @@ st.markdown("""
         border-top: 8px solid rgba(15, 23, 42, 0.95);
     }
 
-    /* Hình ảnh / Avatar linh vật */
+    /* Avatar Mèo Béo Chibi SVG nét căng */
     .mascot-avatar {
-        width: 65px;
-        height: 65px;
+        width: 60px;
+        height: 60px;
         filter: drop-shadow(0 0 10px rgba(0, 194, 255, 0.6));
         transition: transform 0.2s ease;
         cursor: pointer;
@@ -413,8 +413,8 @@ st.markdown("""
 
     <div class="mascot-container">
         <div class="mascot-bubble">
-            ⚡ Đồng đội cày thời tiết của bạn đã sẵn sàng! Xông lên thôi 🚀
+            🐱 Mèo Béo đã sẵn sàng!
         </div>
-        <img class="mascot-avatar" src="https://api.iconify.design/fluent-emoji:robot.svg" alt="WeatherAI Mascot">
+        <img class="mascot-avatar" src="https://api.iconify.design/fluent-emoji:cat-face.svg" alt="Mèo Béo WeatherAI">
     </div>
 """, unsafe_allow_html=True)
