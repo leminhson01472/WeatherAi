@@ -55,12 +55,12 @@ with st.sidebar:
 
     st.write("---")
     st.markdown("Chức năng")
-    st.markdown("— **📝 Trò chuyện mới**")
-    st.markdown("— **📊 Dự báo & Phân tích**")
-    st.markdown("— **🛰️ Bản đồ Radar & Vệ tinh **")
-    st.markdown("— **Nguồn:Windy **")
-    st.markdown("— **⚠️ Cảnh báo giông bão** ")
-    st.markdown("— **⚙️ Cài đặt** *(chưa khả dụng)*")
+    st.markdown(" **📝 Trò chuyện mới**")
+    st.markdown(" **📊 Dự báo & Phân tích**")
+    st.markdown(" **🛰️ Bản đồ Radar & Vệ tinh **")
+    st.markdown("**Nguồn:Windy**")
+    st.markdown(" **⚠️ Cảnh báo giông bão** ")
+    st.markdown(" **⚙️ Cài đặt** *(chưa khả dụng)*")
     st.write("---")
     st.markdown("""
         <div style="background: rgba(128,128,128,0.1); padding: 12px; border-radius: 10px;">
