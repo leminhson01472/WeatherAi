@@ -51,8 +51,9 @@ uvicorn==0.54.0
 watchdog==6.0.0
 websockets==17.3
 streamlit
+requests
 pandas
 plotly
-requests
-openai
 python-dotenv
+openai
+streamlit-js-eval
