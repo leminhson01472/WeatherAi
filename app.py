@@ -298,14 +298,15 @@ else:
 def parse_user_intent(user_question):
     prompt = f"""
 Phân tích câu hỏi người dùng và trả về định dạng JSON/Text ngắn gọn:
-1. Ý định (is_weather): Trả về 'WEATHER' nếu người dùng hỏi tra cứu thời tiết, lượng mưa, nhiệt độ, siêu bão, áp thấp. Trả về 'CHAT' nếu chỉ chào hỏi, tán gẫu.
-2. Tên địa điểm (location): Tên Tỉnh/Thành/Huyện. Trả về 'USE_GPS' nếu người dùng không nhắc đến tên địa danh cụ thể hoặc hỏi tên Bão (như bão CHAMPI).
+1. Ý định (is_weather): Trả về 'STORM' nếu hỏi về siêu bão, bão, áp thấp (ví dụ: 'bão CHAMPI'). Trả về 'WEATHER' nếu người dùng hỏi tra cứu thời tiết địa phương. Trả về 'CHAT' nếu chỉ chào hỏi, tán gẫu.
+2. Tên địa điểm (location): Tên Tỉnh/Thành/Huyện/Bão. Trả về 'USE_GPS' nếu người dùng không nhắc đến tên địa danh cụ thể.
 3. Khoảng thời gian (hours): Số giờ cần xem (24, 48, 72, 120). Mặc định là 120 nếu không rõ.
 
 Chỉ trả về 1 dòng duy nhất theo định dạng: LOẠI|TÊN_ĐỊA_ĐIỂM|SỐ_GIỜ
-Ví dụ 1: WEATHER|Quan Go Vap, Ho Chi Minh|24
-Ví dụ 2: WEATHER|USE_GPS|120
-Ví dụ 3: CHAT|NONE|0
+Ví dụ 1: STORM|Siêu bão CHAMPI|120
+Ví dụ 2: WEATHER|Quan Go Vap, Ho Chi Minh|24
+Ví dụ 3: WEATHER|USE_GPS|120
+Ví dụ 4: CHAT|NONE|0
 
 Câu hỏi: {user_question}
 """
@@ -409,7 +410,7 @@ def generate_ai_report(user_question, location_name, df_weather, target_hours):
     gio_viet_nam = timezone(timedelta(hours=7))
     today_str = datetime.now(gio_viet_nam).strftime("%d/%m/%Y %H:%M:%S")
 
-    weather_summary = df_weather.to_string(index=False)
+    weather_summary = df_weather.to_string(index=False) if df_weather is not None else ""
 
     system_prompt = f"""
 Bạn là Trợ lý AI Khí tượng WeatherAI Intelligence Pro.
@@ -421,10 +422,10 @@ DỮ LIỆU KHÍ TƯỢNG {target_hours} GIỜ TỚI TẠI KHU VỰC THAM CHIẾ
 YÊU CẦU TRẢ LỜI:
 1. Phân tích và trả lời trực tiếp câu hỏi của người dùng: "{user_question}".
 2. KHÔNG ĐƯỢC TỪ CHỐI TRẢ LỜI.
-3. Nếu người dùng hỏi về một CƠN BÃO/SIÊU BÃO (ví dụ: bão Champi):
-   - Cung cấp thông tin tổng quan, đặc điểm khí tượng của cơn bão đó.
-   - Hướng dẫn người dùng xem Bản đồ Radar/Vệ tinh Windy đã được tích hợp ngay trên màn hình ứng dụng WeatherAI.
-   - Kết hợp dùng dữ liệu thời tiết tại khu vực tham chiếu '{location_name}' để đưa ra đánh giá tác động và khuyến nghị an toàn.
+3. Nếu người dùng hỏi về một CƠN BÃO / SIÊU BÃO (ví dụ: Siêu bão CHAMPI):
+   - Phân tích vị trí, quy mô, sức gió và hướng di chuyển của cơn bão.
+   - Nhấn mạnh: "🌀 Bản đồ Radar & Vệ tinh theo dõi trực tiếp cơn bão đã được hiển thị ngay bên dưới để bạn dễ dàng theo dõi."
+   - Đưa ra các cảnh báo thiên tai nguy hiểm và khuyến nghị phòng tránh an toàn.
 """
     try:
         res = client.chat.completions.create(
@@ -507,10 +508,27 @@ else:
         with st.spinner("⚡ WeatherAI đang xử lý..."):
             intent_type, loc_target, target_hours = parse_user_intent(query_text)
 
+            # TRỜI CHUYỆN TÁN GẪU BÌNH THƯỜNG
             if intent_type == "CHAT":
                 chat_reply = generate_general_chat(query_text)
                 st.markdown(f'<div class="ai-card">{chat_reply}</div>', unsafe_allow_html=True)
 
+            # TRA CỨU BÃI / SIÊU BẢO (XỬ LÝ CHUYÊN DỤNG)
+            elif intent_type == "STORM":
+                # Lấy dữ liệu vị trí biển / khu vực theo dõi bão
+                storm_lat, storm_lon = 18.0, 115.0 # Tọa độ tham chiếu theo dõi bão
+                data, _ = fetch_weather_by_coords(storm_lat, storm_lon)
+                
+                st.subheader(f"🌀 Phân tích AI & Thông tin Siêu Bão")
+                report = generate_ai_report(query_text, loc_target, data["df"], target_hours)
+                st.markdown(f'<div class="ai-card">{report}</div>', unsafe_allow_html=True)
+
+                st.write("")
+                st.subheader("🛰️ Bản đồ Radar Mây Mưa & Vệ Tinh Trực Tiếp (Theo dõi Bão)")
+                windy_storm_url = f"https://embed.windy.com/embed2.html?lat={storm_lat}&lon={storm_lon}&detailLat={storm_lat}&detailLon={storm_lon}&width=100%25&height=500&zoom=5&level=surface&overlay=wind&product=ecmwf&menu=&message=true&marker=true&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=m%2Fs&metricTemp=%C2%B0C&radarRange=-1"
+                st.components.v1.iframe(windy_storm_url, height=500, scrolling=False)
+
+            # TRA CỨU THỜI TIẾT ĐỊA PHƯƠNG THÔNG THƯỜNG
             else:
                 if loc_target == "USE_GPS" and user_gps and "coords" in user_gps:
                     lat = user_gps["coords"]["latitude"]
