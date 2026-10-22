@@ -283,8 +283,8 @@ YÊU CẦU BÁO CÁO:
 st.markdown("""
     <div class="brand-header">
         <div class="brand-title">
-            <span>⚡ WeatherAI Intelligence</span>
-            <span class="brand-badge">PRO NEURAL v2.4</span>
+            <span>⚡ WeatherAI (Thử Nghiệm)</span>
+            <span class="brand-badge">v1</span>
         </div>
         <div style="font-size: 12px; color: #94A3B8;">Trợ Lý Dự Báo Khí Tượng & Phân Tích Đa Tầng</div>
     </div>
