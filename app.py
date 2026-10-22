@@ -56,12 +56,11 @@ with st.sidebar:
 
     st.write("---")
     
-    # Menu danh mục chức năng tương tác
+    # Menu danh mục tích hợp gọn gàng
     active_menu = st.radio(
         "📌 Danh mục chức năng:",
         [
-            "📝 Trò chuyện mới",
-            "📊 Dự báo & Phân tích",
+            "📊 Dự báo, Phân tích & Trò chuyện",
             "🛰️ Bản đồ Radar & Vệ tinh",
             "⚠️ Cảnh báo dông bão"
         ],
@@ -298,7 +297,7 @@ else:
 def parse_user_intent(user_question):
     prompt = f"""
 Phân tích câu hỏi người dùng và trả về định dạng JSON/Text ngắn gọn:
-1. Ý định (is_weather): Trả về 'STORM' nếu hỏi về siêu bão, bão, áp thấp (ví dụ: 'bão CHAMPI'). Trả về 'WEATHER' nếu người dùng hỏi tra cứu thời tiết địa phương. Trả về 'CHAT' nếu chỉ chào hỏi, tán gẫu.
+1. Ý định (is_weather): Trả về 'STORM' nếu hỏi về siêu bão, bão, áp thấp (ví dụ: 'bão CHAMPI'). Trả về 'WEATHER' nếu người dùng hỏi tra cứu thời tiết địa phương/lượng mưa/nhiệt độ. Trả về 'CHAT' nếu chỉ chào hỏi, tán gẫu, hỏi đáp chung không cần tra cứu thời tiết.
 2. Tên địa điểm (location): Tên Tỉnh/Thành/Huyện/Bão. Trả về 'USE_GPS' nếu người dùng không nhắc đến tên địa danh cụ thể.
 3. Khoảng thời gian (hours): Số giờ cần xem (24, 48, 72, 120). Mặc định là 120 nếu không rõ.
 
@@ -487,7 +486,7 @@ elif active_menu == "⚠️ Cảnh báo dông bão":
         else:
             st.markdown(f'<div class="safe-box">📍 **Khu vực {data_alert["name"]}**: Hiện không ghi nhận cảnh báo dông bão hay mưa lớn cực đoan trong những ngày tới.</div>', unsafe_allow_html=True)
 
-# TAB 3: TRÒ CHUYỆN & DỰ BÁO CHÍNH
+# TAB 3: DỰ BÁO, PHÂN TÍCH & TRÒ CHUYỆN (TÍCH HỢP TẤT CẢ LÀM MỘT)
 else:
     st.markdown('<div class="hero-title">WeatherAI(Demo)</div>', unsafe_allow_html=True)
 
@@ -508,15 +507,14 @@ else:
         with st.spinner("⚡ WeatherAI đang xử lý..."):
             intent_type, loc_target, target_hours = parse_user_intent(query_text)
 
-            # TRỜI CHUYỆN TÁN GẪU BÌNH THƯỜNG
+            # 1. TRÒ CHUYỆN TÁN GẪU THÔNG THƯỜNG (HIỂN THỊ TỰ NHIÊN TRỰC TIẾP)
             if intent_type == "CHAT":
                 chat_reply = generate_general_chat(query_text)
                 st.markdown(f'<div class="ai-card">{chat_reply}</div>', unsafe_allow_html=True)
 
-            # TRA CỨU BÃI / SIÊU BẢO (XỬ LÝ CHUYÊN DỤNG)
+            # 2. TRA CỨU BÃI / SIÊU BẢO (XỬ LÝ CHUYÊN DỤNG)
             elif intent_type == "STORM":
-                # Lấy dữ liệu vị trí biển / khu vực theo dõi bão
-                storm_lat, storm_lon = 18.0, 115.0 # Tọa độ tham chiếu theo dõi bão
+                storm_lat, storm_lon = 18.0, 115.0
                 data, _ = fetch_weather_by_coords(storm_lat, storm_lon)
                 
                 st.subheader(f"🌀 Phân tích AI & Thông tin Siêu Bão")
@@ -528,7 +526,7 @@ else:
                 windy_storm_url = f"https://embed.windy.com/embed2.html?lat={storm_lat}&lon={storm_lon}&detailLat={storm_lat}&detailLon={storm_lon}&width=100%25&height=500&zoom=5&level=surface&overlay=wind&product=ecmwf&menu=&message=true&marker=true&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=m%2Fs&metricTemp=%C2%B0C&radarRange=-1"
                 st.components.v1.iframe(windy_storm_url, height=500, scrolling=False)
 
-            # TRA CỨU THỜI TIẾT ĐỊA PHƯƠNG THÔNG THƯỜNG
+            # 3. TRA CỨU DỰ BÁO THỜI TIẾT TỰ ĐỘNG
             else:
                 if loc_target == "USE_GPS" and user_gps and "coords" in user_gps:
                     lat = user_gps["coords"]["latitude"]
@@ -591,29 +589,4 @@ else:
                     fig.add_trace(go.Scatter(
                         x=df_filtered["Thời gian"], y=df_filtered["Nhiệt độ (°C)"],
                         mode="lines+markers", name="Nhiệt độ (°C)",
-                        line=dict(color=line_col, width=3)
-                    ))
-                    fig.add_trace(go.Bar(
-                        x=df_filtered["Thời gian"], y=df_filtered["Mưa (mm)"],
-                        name="Lượng mưa (mm)", marker_color=bar_col,
-                        yaxis="y2"
-                    ))
-                    
-                    fig.update_layout(
-                        template="plotly_dark" if is_dark else "plotly_white",
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        plot_bgcolor=bg_col,
-                        margin=dict(l=20, r=20, t=30, b=20),
-                        height=360,
-                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                        dragmode=False,
-                        xaxis=dict(showgrid=True, gridcolor=grid_col, fixedrange=True),
-                        yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor=grid_col, fixedrange=True),
-                        yaxis2=dict(title="Lượng mưa (mm)", overlaying="y", side="right", showgrid=False, fixedrange=True)
-                    )
-                    
-                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-                    st.subheader("🤖 Phân tích AI")
-                    report = generate_ai_report(query_text, loc_name, df_filtered, target_hours)
-                    st.markdown(f'<div class="ai-card">{report}</div>', unsafe_allow_html=True)
+                        line=dict(color=line_col
