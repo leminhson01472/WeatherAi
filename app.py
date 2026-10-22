@@ -49,11 +49,12 @@ with st.sidebar:
     is_dark = "Dark Mode" in theme_choice
 
     st.write("---")
-    st.markdown("— **📝 Trò chuyện mới**")
-    st.markdown("— **📊 Dự báo & Phân tích**")
-    st.markdown("— **🛰️ Bản đồ Radar** *(chưa khả dụng)*")
-    st.markdown("— **⚠️ Cảnh báo dông bão** *(chưa khả dụng)*")
-    st.markdown("— **⚙️ Cài đặt** *(chưa khả dụng)*")
+    st.markdown(" **Chức năng**")
+    st.markdown(" **📝 Trò chuyện mới**")
+    st.markdown(" **📊 Dự báo & Phân tích**")
+    st.markdown(" **🛰️ Bản đồ Radar** *(chưa khả dụng)*")
+    st.markdown(" **⚠️ Cảnh báo dông bão** *(chưa khả dụng)*")
+    st.markdown(" **⚙️ Cài đặt** *(chưa khả dụng)*")
     st.write("---")
     st.markdown("""
         <div style="background: rgba(128,128,128,0.1); padding: 12px; border-radius: 10px;">
