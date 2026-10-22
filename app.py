@@ -382,7 +382,7 @@ YÊU CẦU:
 # ==========================================
 # 5. GIAO DIỆN CHÍNH
 # ==========================================
-st.markdown('<div class="hero-title">WeatherAI(Demo)</div>', unsafe_allow_html=True)
+st.markdown('<div class="hero-title">Chúng ta nên bắt đầu từ đâu?</div>', unsafe_allow_html=True)
 
 col_input, col_btn = st.columns([5, 1])
 with col_input:
