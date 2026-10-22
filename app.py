@@ -16,7 +16,7 @@ AI_KEY = os.getenv("APIGIARE_API_KEY") or (st.secrets.get("APIGIARE_API_KEY") if
 WEATHER_KEY = os.getenv("OPENWEATHER_API_KEY") or (st.secrets.get("OPENWEATHER_API_KEY") if "OPENWEATHER_API_KEY" in st.secrets else None)
 
 st.set_page_config(
-    page_title="WeatherAI Intelligence PRO",
+    page_title="WeatherAI",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -293,8 +293,8 @@ YÊU CẦU:
 st.markdown("""
     <div class="brand-header">
         <div class="brand-title">
-            <span>⚡ WeatherAI Intelligence</span>
-            <span class="brand-badge">PRO NEURAL v2.4</span>
+            <span>⚡ WeatherAI (DEMO)</span>
+            <span class="brand-badge">V1</span>
         </div>
         <div style="font-size: 12px; color: #94A3B8;">Trợ Lý Dự Báo Khí Tượng & Phân Tích Đa Tầng</div>
     </div>
