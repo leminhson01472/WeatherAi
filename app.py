@@ -291,7 +291,7 @@ with col_input:
     user_q = st.text_input(
         "Nhập địa điểm / câu hỏi:",
         value="",
-        placeholder="Hãy viết điều gì đó.",
+        placeholder="Hỏi WeatherAI...",
         label_visibility="collapsed"
     )
 with col_btn:
