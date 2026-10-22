@@ -161,7 +161,7 @@ def extract_location(user_question):
     today_str = datetime.now(gio_viet_nam).strftime("%d/%m/%Y %H:%M:%S")
 
     prompt = f"""
-Nhiệm vụ: Trích xuất tên Tỉnh/Thành phố hoặc Huyện lớn nhất từ câu hỏi người dùng để phục vụ tra cứu tọa độ khí tượng toàn cầu.
+Nhiệm vụ: Trích xuất tên Tỉnh/Thành phố hoặc Huyện lớn nhất từ câu hỏi người dùng để tra cứu tọa độ khí tượng.
 Nếu người dùng nhập Thôn/Xã/Ấp/Bản, hãy lấy tên Huyện hoặc Tỉnh tương ứng (Ví dụ: 'Thôn Tiên Châu, Tuy An Đông, Đắk Lắk' -> 'Tuy An, Dak Lak' hoặc 'Dak Lak').
 Nếu không có thông tin, trả về 'Quan Go Vap, Ho Chi Minh'.
 Thời gian hiện tại: {today_str}.
@@ -193,19 +193,19 @@ def fetch_weather_data(location_name):
             pass
         return None
 
-    # Lần 1: Tìm địa điểm chính xác có mã quốc gia VN
+    # Lần 1: Tìm địa điểm chính xác kèm mã quốc gia VN
     geo_data = safe_get_geo(f"{location_name},VN")
 
-    # Lần 2: Thử tìm tự do không kèm mã VN
+    # Lần 2: Tìm tự do không kèm mã VN
     if not geo_data:
         geo_data = safe_get_geo(location_name)
 
-    # Lần 3: Trích xuất từ đơn lập (Tỉnh/Thành) nếu nhập từ khóa quá dài
+    # Lần 3: Trích xuất tên Tỉnh ở đoạn cuối nếu chuỗi chứa dấu phẩy
     if not geo_data and "," in location_name:
         last_part = location_name.split(",")[-1].strip()
         geo_data = safe_get_geo(f"{last_part},VN")
 
-    # Lần 4: Fallback mặc định về TP. Hồ Chí Minh nếu không có dữ liệu nào khớp
+    # Lần 4: Fallback mặc định về TP. Hồ Chí Minh
     if not geo_data:
         geo_data = safe_get_geo("Ho Chi Minh,VN")
 
@@ -249,13 +249,19 @@ def generate_ai_report(user_question, location_name, df_weather):
     system_prompt = f"""
 Bạn là Hệ thống AI Khí tượng WeatherAI Intelligence Pro.
 Thời gian hiện tại: {today_str}.
-DỮ LIỆU DỰ BÁO THỜI TIẾT TẠI '{location_name}':
+
+DỮ LIỆU KHÍ TƯỢNG ĐÃ TRUY XUẤT ĐẠI DIỆN CHO KHU VỰC: '{location_name}'
 {weather_summary}
 
-YÊU CẦU:
-1. Trả lời trực tiếp câu hỏi người dùng theo phong cách báo cáo khí tượng chuyên nghiệp.
+LƯU Ý QUAN TRỌNG:
+- Người dùng hỏi về địa điểm: "{user_question}".
+- BẮT BUỘC dùng dữ liệu khí tượng trên của '{location_name}' để phân tích trả lời cho câu hỏi.
+- KHÔNG ĐƯỢC TỪ CHỐI hoặc báo không có dữ liệu. Nếu người dùng hỏi cấp Thôn/Xã/Ấp, giải thích ngắn gọn rằng dữ liệu được phân tích theo khu vực địa lý đại diện '{location_name}'.
+
+YÊU CẦU BÁO CÁO:
+1. Phân tích chi tiết câu hỏi thời tiết của người dùng.
 2. Nêu rõ ngày/khung giờ mưa nhiều nhất và biến động nhiệt độ.
-3. Đưa ra 2 khuyến nghị thực tế: (1) Giao thông & Di chuyển; (2) Hoạt động ngoài trời/Nông nghiệp.
+3. Đưa ra 2 khuyến nghị thực tế: (1) Giao thông & Di chuyển; (2) Sản xuất nông nghiệp / Hoạt động ngoài trời.
 """
     try:
         res = client.chat.completions.create(
