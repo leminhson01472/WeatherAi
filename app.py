@@ -35,98 +35,20 @@ client = OpenAI(
 MODEL = "gpt-4o"
 
 # ==========================================
-# 2. BỘ CSS NỀN TRẮNG PHONG CÁCH CHATGPT
-# ==========================================
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-        background-color: #FFFFFF !important;
-        color: #0D0D0D !important;
-        font-family: 'Inter', sans-serif;
-    }
-
-    #MainMenu, footer {visibility: hidden;}
-
-    [data-testid="stSidebar"] {
-        background-color: #F9F9F9 !important;
-        border-right: 1px solid #E5E5E5 !important;
-    }
-
-    .hero-title {
-        text-align: center;
-        font-size: 32px;
-        font-weight: 600;
-        color: #0D0D0D;
-        margin-top: 40px;
-        margin-bottom: 25px;
-    }
-
-    .stTextInput > div > div > input {
-        background-color: #FFFFFF !important;
-        border: 1px solid #E5E5E5 !important;
-        color: #0D0D0D !important;
-        border-radius: 999px !important;
-        padding: 14px 24px !important;
-        font-size: 15px !important;
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04) !important;
-    }
-
-    .stTextInput > div > div > input:focus {
-        border-color: #B4B4B4 !important;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
-    }
-
-    .stButton > button {
-        background: #000000 !important;
-        color: #FFFFFF !important;
-        font-weight: 600 !important;
-        border: none !important;
-        border-radius: 999px !important;
-        padding: 12px 20px !important;
-    }
-
-    .telemetry-card {
-        background: #F9F9F9;
-        border: 1px solid #E5E5E5;
-        border-radius: 12px;
-        padding: 16px;
-    }
-    .telemetry-label {
-        font-size: 11px;
-        font-weight: 600;
-        color: #666666;
-        text-transform: uppercase;
-    }
-    .telemetry-value {
-        font-size: 24px;
-        font-weight: 700;
-        color: #0D0D0D;
-        margin: 4px 0;
-    }
-    .telemetry-sub {
-        font-size: 12px;
-        color: #10A37F;
-    }
-
-    .ai-card {
-        background: #FFFFFF;
-        border: 1px solid #E5E5E5;
-        border-radius: 16px;
-        padding: 24px;
-        margin-top: 20px;
-        line-height: 1.6;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# ==========================================
-# 3. SIDEBAR NAVIGATION
+# 2. SIDEBAR NAVIGATION & THEME SWITCHER
 # ==========================================
 with st.sidebar:
     st.markdown("### ⚡ WeatherAI")
+    
+    # Nút chuyển đổi giao diện
+    theme_choice = st.radio(
+        "🎨 Chế độ giao diện:",
+        ["☀️ ChatGPT Minimalist (Mới)", "🌙 Dark Mode Glassmorphism (Cũ)"],
+        index=0
+    )
+    is_dark = "Dark Mode" in theme_choice
+
+    st.write("---")
     st.markdown("— **📝 Trò chuyện mới**")
     st.markdown("— **📊 Dự báo & Phân tích**")
     st.markdown("— **🛰️ Bản đồ Radar** *(chưa khả dụng)*")
@@ -134,10 +56,179 @@ with st.sidebar:
     st.markdown("— **⚙️ Cài đặt** *(chưa khả dụng)*")
     st.write("---")
     st.markdown("""
-        <div style="background: #F0F0F0; padding: 12px; border-radius: 10px;">
-            <div style="font-size:11px; color:#666666; font-weight:600;">MÔ HÌNH DỰ BÁO</div>
-            <div style="font-size:16px; color:#0D0D0D; font-weight:700;">WeatherAI Pro Neural</div>
+        <div style="background: rgba(128,128,128,0.1); padding: 12px; border-radius: 10px;">
+            <div style="font-size:11px; opacity: 0.7; font-weight:600;">MÔ HÌNH DỰ BÁO</div>
+            <div style="font-size:16px; font-weight:700;">WeatherAI Pro Neural</div>
         </div>
+    """, unsafe_allow_html=True)
+
+# ==========================================
+# 3. DYNAMIC CSS STYLES
+# ==========================================
+if is_dark:
+    # BỘ CSS DARK MODE GLASSMORPHISM (GIAO DIỆN CỦ)
+    st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
+        html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+            background-color: #0A1327 !important;
+            color: #F8FAFC !important;
+            font-family: 'Inter', sans-serif;
+        }
+
+        #MainMenu, footer {visibility: hidden;}
+
+        [data-testid="stSidebar"] {
+            background-color: #050E21 !important;
+            border-right: 1px solid rgba(56, 189, 248, 0.12) !important;
+        }
+
+        .hero-title {
+            text-align: center;
+            font-size: 32px;
+            font-weight: 700;
+            color: #F8FAFC;
+            margin-top: 20px;
+            margin-bottom: 25px;
+        }
+
+        .stTextInput > div > div > input {
+            background-color: rgba(18, 27, 47, 0.9) !important;
+            border: 1px solid rgba(56, 189, 248, 0.3) !important;
+            color: #F8FAFC !important;
+            border-radius: 8px !important;
+        }
+        .stButton > button {
+            background: linear-gradient(135deg, #00C2FF 0%, #0284C7 100%) !important;
+            color: #0A1327 !important;
+            font-weight: 700 !important;
+            border: none !important;
+            border-radius: 8px !important;
+        }
+
+        .telemetry-card {
+            background: rgba(24, 35, 60, 0.75);
+            border: 1px solid rgba(56, 189, 248, 0.18);
+            border-radius: 12px;
+            padding: 16px;
+        }
+        .telemetry-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #94A3B8;
+            text-transform: uppercase;
+        }
+        .telemetry-value {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 26px;
+            font-weight: 700;
+            color: #F8FAFC;
+            margin: 6px 0;
+        }
+        .telemetry-sub {
+            font-size: 12px;
+            color: #38BDF8;
+        }
+
+        .ai-card {
+            background: rgba(18, 27, 47, 0.9);
+            border: 1px solid rgba(0, 194, 255, 0.35);
+            border-left: 4px solid #00C2FF;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 15px;
+            line-height: 1.6;
+            color: #F8FAFC;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+else:
+    # BỘ CSS LIGHT MODE CHATGPT (GIAO DIỆN MỚI)
+    st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+            background-color: #FFFFFF !important;
+            color: #0D0D0D !important;
+            font-family: 'Inter', sans-serif;
+        }
+
+        #MainMenu, footer {visibility: hidden;}
+
+        [data-testid="stSidebar"] {
+            background-color: #F9F9F9 !important;
+            border-right: 1px solid #E5E5E5 !important;
+        }
+
+        .hero-title {
+            text-align: center;
+            font-size: 32px;
+            font-weight: 600;
+            color: #0D0D0D;
+            margin-top: 40px;
+            margin-bottom: 25px;
+        }
+
+        .stTextInput > div > div > input {
+            background-color: #FFFFFF !important;
+            border: 1px solid #E5E5E5 !important;
+            color: #0D0D0D !important;
+            border-radius: 999px !important;
+            padding: 14px 24px !important;
+            font-size: 15px !important;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04) !important;
+        }
+
+        .stTextInput > div > div > input:focus {
+            border-color: #B4B4B4 !important;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+        }
+
+        .stButton > button {
+            background: #000000 !important;
+            color: #FFFFFF !important;
+            font-weight: 600 !important;
+            border: none !important;
+            border-radius: 999px !important;
+            padding: 12px 20px !important;
+        }
+
+        .telemetry-card {
+            background: #F9F9F9;
+            border: 1px solid #E5E5E5;
+            border-radius: 12px;
+            padding: 16px;
+        }
+        .telemetry-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #666666;
+            text-transform: uppercase;
+        }
+        .telemetry-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0D0D0D;
+            margin: 4px 0;
+        }
+        .telemetry-sub {
+            font-size: 12px;
+            color: #10A37F;
+        }
+
+        .ai-card {
+            background: #FFFFFF;
+            border: 1px solid #E5E5E5;
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 20px;
+            line-height: 1.6;
+            color: #0D0D0D;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+        }
+        </style>
     """, unsafe_allow_html=True)
 
 # ==========================================
@@ -275,7 +366,7 @@ YÊU CẦU:
 
 
 # ==========================================
-# 5. GIAO DIỆN CHÍNH (MINIMALIST)
+# 5. GIAO DIỆN CHÍNH
 # ==========================================
 st.markdown('<div class="hero-title">Chúng ta nên bắt đầu từ đâu?</div>', unsafe_allow_html=True)
 
@@ -312,12 +403,16 @@ if submit_btn:
                 num_rows = max(1, target_hours // 3)
                 df_filtered = df.head(num_rows)
 
+                highlight_color = "#00C2FF" if is_dark else "#10A37F"
+                badge_bg = "rgba(0, 194, 255, 0.12)" if is_dark else "#F0F0F0"
+                badge_text = "#75D1FF" if is_dark else "#666666"
+
                 st.markdown(f"""
                     <div style="display: flex; align-items: center; gap: 10px; margin: 20px 0 10px 0;">
                         <span style="font-size: 20px; font-weight: 700;">
-                            📍 Thời tiết tại <span style="color: #10A37F;">{loc_name}</span>
+                            📍 Thời tiết tại <span style="color: {highlight_color};">{loc_name}</span>
                         </span>
-                        <span style="background: #F0F0F0; color: #666666; font-family: monospace; font-size: 12px; padding: 2px 8px; border-radius: 6px;">
+                        <span style="background: {badge_bg}; color: {badge_text}; font-family: monospace; font-size: 12px; padding: 2px 8px; border-radius: 6px;">
                             {data['lat']:.3f}°N, {data['lon']:.3f}°E
                         </span>
                     </div>
@@ -343,27 +438,32 @@ if submit_btn:
                 st.subheader(f"📈 Biểu đồ thời tiết ({target_hours} giờ tới)")
 
                 fig = go.Figure()
+                line_col = "#00C2FF" if is_dark else "#10A37F"
+                bar_col = "rgba(56, 189, 248, 0.5)" if is_dark else "rgba(16, 163, 127, 0.3)"
+                bg_col = "rgba(10, 19, 39, 0.6)" if is_dark else "#FFFFFF"
+                grid_col = "rgba(255,255,255,0.08)" if is_dark else "#F0F0F0"
+
                 fig.add_trace(go.Scatter(
                     x=df_filtered["Thời gian"], y=df_filtered["Nhiệt độ (°C)"],
                     mode="lines+markers", name="Nhiệt độ (°C)",
-                    line=dict(color="#10A37F", width=3)
+                    line=dict(color=line_col, width=3)
                 ))
                 fig.add_trace(go.Bar(
                     x=df_filtered["Thời gian"], y=df_filtered["Mưa (mm)"],
-                    name="Lượng mưa (mm)", marker_color="rgba(16, 163, 127, 0.3)",
+                    name="Lượng mưa (mm)", marker_color=bar_col,
                     yaxis="y2"
                 ))
                 
                 fig.update_layout(
-                    template="plotly_white",
+                    template="plotly_dark" if is_dark else "plotly_white",
                     paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="#FFFFFF",
+                    plot_bgcolor=bg_col,
                     margin=dict(l=20, r=20, t=30, b=20),
                     height=360,
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                     dragmode=False,
-                    xaxis=dict(showgrid=True, gridcolor="#F0F0F0", fixedrange=True),
-                    yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor="#F0F0F0", fixedrange=True),
+                    xaxis=dict(showgrid=True, gridcolor=grid_col, fixedrange=True),
+                    yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor=grid_col, fixedrange=True),
                     yaxis2=dict(title="Lượng mưa (mm)", overlaying="y", side="right", showgrid=False, fixedrange=True)
                 )
                 
