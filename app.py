@@ -34,7 +34,6 @@ client = OpenAI(
 )
 MODEL = "gpt-4o"
 
-# Thử import streamlit_js_eval an toàn (không crash nếu chưa cài)
 try:
     from streamlit_js_eval import get_geolocation
     user_gps = get_geolocation()
@@ -58,8 +57,8 @@ with st.sidebar:
     st.markdown("Chức năng")
     st.markdown("— **📝 Trò chuyện mới**")
     st.markdown("— **📊 Dự báo & Phân tích**")
-    st.markdown("— **🛰️ Bản đồ Radar** *(chưa khả dụng)*")
-    st.markdown("— **⚠️ Cảnh báo dông bão** *(chưa khả dụng)*")
+    st.markdown("— **🛰️ Bản đồ Radar & Vệ tinh**")
+    st.markdown("— **⚠️ Cảnh báo dông bão** ")
     st.markdown("— **⚙️ Cài đặt** *(chưa khả dụng)*")
     st.write("---")
     st.markdown("""
@@ -70,14 +69,13 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. DYNAMIC CSS STYLES (ĐÃ TỐI ƯU KHOẢNG TRẮNG)
+# 3. DYNAMIC CSS STYLES
 # ==========================================
 if is_dark:
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
 
-        /* Xóa khoảng trống thừa trên cùng */
         .block-container {
             padding-top: 2rem !important;
             padding-bottom: 2rem !important;
@@ -154,6 +152,25 @@ if is_dark:
             line-height: 1.6;
             color: #F8FAFC;
         }
+        
+        .alert-box {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            border-left: 4px solid #EF4444;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 15px 0;
+            color: #F8FAFC;
+        }
+        .safe-box {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-left: 4px solid #10B981;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 15px 0;
+            color: #F8FAFC;
+        }
         </style>
     """, unsafe_allow_html=True)
 else:
@@ -161,7 +178,6 @@ else:
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-        /* Xóa khoảng trống thừa trên cùng */
         .block-container {
             padding-top: 2rem !important;
             padding-bottom: 2rem !important;
@@ -245,6 +261,25 @@ else:
             line-height: 1.6;
             color: #0D0D0D;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+        }
+        
+        .alert-box {
+            background: #FEF2F2;
+            border: 1px solid #FCA5A5;
+            border-left: 4px solid #EF4444;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 15px 0;
+            color: #991B1B;
+        }
+        .safe-box {
+            background: #ECFDF5;
+            border: 1px solid #6EE7B7;
+            border-left: 4px solid #10B981;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 15px 0;
+            color: #065F46;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -471,6 +506,31 @@ if submit_btn:
 
                 st.write("")
 
+                # ==========================================
+                # CHỨC NĂNG 1: ⚠️ CẢNH BÁO DÔNG BÃO TỰ ĐỘNG
+                # ==========================================
+                max_rain = df_filtered["Mưa (mm)"].max()
+                heavy_rain_times = df_filtered[df_filtered["Mưa (mm)"] >= 10.0]["Thời gian"].tolist()
+                thunder_times = df_filtered[df_filtered["Mô tả"].str.contains("dông|bão|sấm|mưa to|mưa rất to", case=False, na=False)]["Thời gian"].tolist()
+
+                alerts = []
+                if max_rain >= 10.0:
+                    alerts.append(f"🌧️ **Cảnh báo mưa lớn**: Lượng mưa cao nhất đạt **{max_rain:.1f} mm/3h**. Khu vực có nguy cơ ngập lụt cục bộ.")
+                if thunder_times:
+                    alerts.append(f"⚡ **Cảnh báo Dông Sấm**: Ghi nhận thời tiết nguy hiểm vào các khung giờ: `{', '.join(thunder_times[:3])}`.")
+                if curr_temp >= 37.0:
+                    alerts.append("🔥 **Cảnh báo Nắng nóng cực đoan**: Nhiệt độ trên 37°C, hạn chế ra ngoài trời vào giữa trưa.")
+
+                st.subheader("⚠️ Cảnh báo Dông Bão & Thời tiết Cực đoan")
+                if alerts:
+                    alert_html = "<br>".join(alerts)
+                    st.markdown(f'<div class="alert-box">{alert_html}</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown('<div class="safe-box">✅ **An toàn**: Không ghi nhận cảnh báo mưa lớn hay dông bão cực đoan trong khoảng thời gian này.</div>', unsafe_allow_html=True)
+
+                st.write("")
+
+                # Biểu đồ thời tiết
                 st.subheader(f"📈 Biểu đồ thời tiết ({target_hours} giờ tới)")
 
                 fig = go.Figure()
@@ -504,6 +564,16 @@ if submit_btn:
                 )
                 
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+                # ==========================================
+                # CHỨC NĂNG 2: 🛰️ BẢN ĐỒ RADAR & VỆ TINH TRỰC TUYẾN
+                # ==========================================
+                st.subheader("🛰️ Bản đồ Radar Mây Mưa & Vệ Tinh Trực Tuyến")
+                windy_url = f"https://embed.windy.com/embed2.html?lat={data['lat']}&lon={data['lon']}&detailLat={data['lat']}&detailLon={data['lon']}&width=100%25&height=450&zoom=8&level=surface&overlay=radar&product=radar&menu=&message=true&marker=true&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=m%2Fs&metricTemp=%C2%B0C&radarRange=-1"
+                
+                st.components.v1.iframe(windy_url, height=450, scrolling=False)
+
+                st.write("")
 
                 st.subheader("🤖 Phân tích AI")
                 report = generate_ai_report(query_text, loc_name, df_filtered, target_hours)
