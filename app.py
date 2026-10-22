@@ -4,7 +4,6 @@ import requests
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from streamlit_js_eval import get_geolocation
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -35,6 +34,13 @@ client = OpenAI(
 )
 MODEL = "gpt-4o"
 
+# Thử import streamlit_js_eval an toàn (không crash nếu chưa cài)
+try:
+    from streamlit_js_eval import get_geolocation
+    user_gps = get_geolocation()
+except Exception:
+    user_gps = None
+
 # ==========================================
 # 2. SIDEBAR NAVIGATION & THEME SWITCHER
 # ==========================================
@@ -44,17 +50,17 @@ with st.sidebar:
     theme_choice = st.radio(
         "🎨 Chế độ giao diện:",
         ["☀️ Light Mode", "🌙 Dark Mode"],
-        index=0
+        index=1
     )
     is_dark = "Dark Mode" in theme_choice
 
     st.write("---")
-    st.markdown(" **Chức năng**")
-    st.markdown(" **📝 Trò chuyện mới**")
-    st.markdown(" **📊 Dự báo & Phân tích**")
-    st.markdown(" **🛰️ Bản đồ Radar** *(chưa khả dụng)*")
-    st.markdown(" **⚠️ Cảnh báo dông bão** *(chưa khả dụng)*")
-    st.markdown(" **⚙️ Cài đặt** *(chưa khả dụng)*")
+    st.markdown("Chức năng")
+    st.markdown("— **📝 Trò chuyện mới**")
+    st.markdown("— **📊 Dự báo & Phân tích**")
+    st.markdown("— **🛰️ Bản đồ Radar** *(chưa khả dụng)*")
+    st.markdown("— **⚠️ Cảnh báo dông bão** *(chưa khả dụng)*")
+    st.markdown("— **⚙️ Cài đặt** *(chưa khả dụng)*")
     st.write("---")
     st.markdown("""
         <div style="background: rgba(128,128,128,0.1); padding: 12px; border-radius: 10px;">
@@ -64,12 +70,18 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. DYNAMIC CSS STYLES
+# 3. DYNAMIC CSS STYLES (ĐÃ TỐI ƯU KHOẢNG TRẮNG)
 # ==========================================
 if is_dark:
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
+        /* Xóa khoảng trống thừa trên cùng */
+        .block-container {
+            padding-top: 2rem !important;
+            padding-bottom: 2rem !important;
+        }
 
         html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
             background-color: #0A1327 !important;
@@ -87,10 +99,10 @@ if is_dark:
         .hero-title {
             text-align: center;
             font-size: 32px;
-            font-weight: 700;
+            font-weight: 800;
             color: #F8FAFC;
-            margin-top: 20px;
-            margin-bottom: 25px;
+            margin-top: 10px;
+            margin-bottom: 20px;
         }
 
         .stTextInput > div > div > input {
@@ -98,6 +110,7 @@ if is_dark:
             border: 1px solid rgba(56, 189, 248, 0.3) !important;
             color: #F8FAFC !important;
             border-radius: 8px !important;
+            padding: 10px 16px !important;
         }
         .stButton > button {
             background: linear-gradient(135deg, #00C2FF 0%, #0284C7 100%) !important;
@@ -148,6 +161,12 @@ else:
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+        /* Xóa khoảng trống thừa trên cùng */
+        .block-container {
+            padding-top: 2rem !important;
+            padding-bottom: 2rem !important;
+        }
+
         html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
             background-color: #FFFFFF !important;
             color: #0D0D0D !important;
@@ -166,8 +185,8 @@ else:
             font-size: 32px;
             font-weight: 600;
             color: #0D0D0D;
-            margin-top: 40px;
-            margin-bottom: 25px;
+            margin-top: 10px;
+            margin-bottom: 20px;
         }
 
         .stTextInput > div > div > input {
@@ -175,7 +194,7 @@ else:
             border: 1px solid #E5E5E5 !important;
             color: #0D0D0D !important;
             border-radius: 999px !important;
-            padding: 14px 24px !important;
+            padding: 12px 20px !important;
             font-size: 15px !important;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04) !important;
         }
@@ -191,7 +210,7 @@ else:
             font-weight: 600 !important;
             border: none !important;
             border-radius: 999px !important;
-            padding: 12px 20px !important;
+            padding: 10px 18px !important;
         }
 
         .telemetry-card {
@@ -230,21 +249,18 @@ else:
         </style>
     """, unsafe_allow_html=True)
 
-# Lấy GPS thiết bị ngầm
-user_gps = get_geolocation()
-
 # ==========================================
 # 4. HÀM XỬ LÝ DỮ LIỆU & AI
 # ==========================================
 def parse_user_intent(user_question):
     prompt = f"""
 Phân tích câu hỏi người dùng và trả về định dạng JSON/Text ngắn gọn:
-1. Ý định (is_weather): Trả về 'WEATHER' nếu người dùng hỏi tra cứu thời tiết/lượng mưa/nhiệt độ/thời tiết nơi ở. Trả về 'CHAT' nếu chỉ là câu chào hỏi, tán gẫu, hỏi đáp chung không yêu cầu tra cứu thời tiết cụ thể.
-2. Tên địa điểm (location): Tên Tỉnh/Thành/Huyện. Nếu người dùng KHÔNG ghi rõ địa điểm hoặc hỏi chung chung (ví dụ "thời tiết hôm nay thế nào", "mưa không"), trả về 'USE_GPS'.
+1. Ý định (is_weather): Trả về 'WEATHER' nếu người dùng hỏi tra cứu thời tiết/lượng mưa/nhiệt độ. Trả về 'CHAT' nếu chỉ là câu chào hỏi, tán gẫu.
+2. Tên địa điểm (location): Tên Tỉnh/Thành/Huyện. Trả về 'USE_GPS' nếu người dùng không nhắc đến tên địa danh cụ thể.
 3. Khoảng thời gian (hours): Số giờ cần xem (24, 48, 72, 120). Mặc định là 120 nếu không rõ.
 
 Chỉ trả về 1 dòng duy nhất theo định dạng: LOẠI|TÊN_ĐỊA_ĐIỂM|SỐ_GIỜ
-Ví dụ 1: WEATHER|Quan Go Vap, Ho Chi Minh|24
+Ví dụ: WEATHER|Quan Go Vap, Ho Chi Minh|24
 Ví dụ 2: WEATHER|USE_GPS|24
 Ví dụ 3: CHAT|NONE|0
 
@@ -267,7 +283,6 @@ Câu hỏi: {user_question}
 
 
 def fetch_weather_by_coords(lat, lon):
-    # Lấy tên địa điểm từ tọa độ GPS
     geo_url = f"http://api.openweathermap.org/geo/1.0/reverse?lat={lat}&lon={lon}&limit=1&appid={WEATHER_KEY}"
     display_name = "Vị trí GPS của bạn"
     try:
@@ -399,7 +414,7 @@ with col_btn:
 if submit_btn:
     query_text = user_q.strip() if user_q.strip() else "Thời tiết hôm nay thế nào?"
 
-    with st.spinner("⚡ WeatherAI đang định vị & lấy dữ liệu..."):
+    with st.spinner("⚡ WeatherAI đang xử lý..."):
         intent_type, loc_target, target_hours = parse_user_intent(query_text)
 
         if intent_type == "CHAT":
@@ -407,7 +422,6 @@ if submit_btn:
             st.markdown(f'<div class="ai-card">{chat_reply}</div>', unsafe_allow_html=True)
 
         else:
-            # KIỂM TRA ĐỊNH VỊ GPS NẾU KHÔNG CÓ TÊN ĐỊA ĐIỂM CỤ THỂ
             if loc_target == "USE_GPS" and user_gps and "coords" in user_gps:
                 lat = user_gps["coords"]["latitude"]
                 lon = user_gps["coords"]["longitude"]
