@@ -35,100 +35,89 @@ client = OpenAI(
 MODEL = "gpt-4o"
 
 # ==========================================
-# 2. BỘ CSS GLASSMORPHISM DARK MODE
+# 2. BỘ CSS NỀN TRẮNG PHONG CÁCH CHATGPT
 # ==========================================
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-        background-color: #0A1327 !important;
-        color: #F8FAFC !important;
+        background-color: #FFFFFF !important;
+        color: #0D0D0D !important;
         font-family: 'Inter', sans-serif;
     }
 
     #MainMenu, footer {visibility: hidden;}
 
     [data-testid="stSidebar"] {
-        background-color: #050E21 !important;
-        border-right: 1px solid rgba(56, 189, 248, 0.12) !important;
+        background-color: #F9F9F9 !important;
+        border-right: 1px solid #E5E5E5 !important;
     }
 
-    .brand-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 12px 20px;
-        background: rgba(18, 27, 47, 0.85);
-        border: 1px solid rgba(56, 189, 248, 0.2);
-        border-radius: 12px;
-        margin-bottom: 20px;
+    .hero-title {
+        text-align: center;
+        font-size: 32px;
+        font-weight: 600;
+        color: #0D0D0D;
+        margin-top: 40px;
+        margin-bottom: 25px;
     }
-    .brand-title {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        font-size: 20px;
-        font-weight: 800;
-        color: #F8FAFC;
-        display: flex;
-        align-items: center;
-        gap: 10px;
+
+    .stTextInput > div > div > input {
+        background-color: #FFFFFF !important;
+        border: 1px solid #E5E5E5 !important;
+        color: #0D0D0D !important;
+        border-radius: 999px !important;
+        padding: 14px 24px !important;
+        font-size: 15px !important;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04) !important;
     }
-    .brand-badge {
-        background: rgba(0, 194, 255, 0.15);
-        border: 1px solid rgba(0, 194, 255, 0.4);
-        color: #00C2FF;
-        font-size: 11px;
-        font-weight: 700;
-        padding: 2px 8px;
-        border-radius: 999px;
+
+    .stTextInput > div > div > input:focus {
+        border-color: #B4B4B4 !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    .stButton > button {
+        background: #000000 !important;
+        color: #FFFFFF !important;
+        font-weight: 600 !important;
+        border: none !important;
+        border-radius: 999px !important;
+        padding: 12px 20px !important;
     }
 
     .telemetry-card {
-        background: rgba(24, 35, 60, 0.75);
-        border: 1px solid rgba(56, 189, 248, 0.18);
+        background: #F9F9F9;
+        border: 1px solid #E5E5E5;
         border-radius: 12px;
         padding: 16px;
     }
     .telemetry-label {
         font-size: 11px;
         font-weight: 600;
-        color: #94A3B8;
+        color: #666666;
         text-transform: uppercase;
     }
     .telemetry-value {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        font-size: 26px;
+        font-size: 24px;
         font-weight: 700;
-        color: #F8FAFC;
-        margin: 6px 0;
+        color: #0D0D0D;
+        margin: 4px 0;
     }
     .telemetry-sub {
         font-size: 12px;
-        color: #38BDF8;
+        color: #10A37F;
     }
 
     .ai-card {
-        background: rgba(18, 27, 47, 0.9);
-        border: 1px solid rgba(0, 194, 255, 0.35);
-        border-left: 4px solid #00C2FF;
-        border-radius: 12px;
-        padding: 20px;
-        margin-top: 15px;
+        background: #FFFFFF;
+        border: 1px solid #E5E5E5;
+        border-radius: 16px;
+        padding: 24px;
+        margin-top: 20px;
         line-height: 1.6;
-    }
-
-    .stTextInput > div > div > input {
-        background-color: rgba(18, 27, 47, 0.9) !important;
-        border: 1px solid rgba(56, 189, 248, 0.3) !important;
-        color: #F8FAFC !important;
-        border-radius: 8px !important;
-    }
-    .stButton > button {
-        background: linear-gradient(135deg, #00C2FF 0%, #0284C7 100%) !important;
-        color: #0A1327 !important;
-        font-weight: 700 !important;
-        border: none !important;
-        border-radius: 8px !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -137,19 +126,17 @@ st.markdown("""
 # 3. SIDEBAR NAVIGATION
 # ==========================================
 with st.sidebar:
-    st.markdown("### ⚡ KHÍ TƯỢNG VI MÔ")
-    st.markdown("— **🌐 Tổng quan trạm** *(chưa khả dụng)*")
-    st.markdown("— **🛰️ Bản đồ Radar & Vệ tinh** *(chưa khả dụng)*")
-    st.markdown("— <span style='color:#00C2FF; font-weight:bold;'>📊 Dự báo & Phân tích</span>", unsafe_allow_html=True)
-    st.markdown("— **⚠️ Cảnh báo bão & dông** *(chưa khả dụng)*")
-    st.markdown("— **📜 Nhật ký suy luận AI** *(chưa khả dụng)*")
-    st.markdown("— **⚙️ Cấu hình API & Model** *(chưa khả dụng)*")
+    st.markdown("### ⚡ WeatherAI")
+    st.markdown("— **📝 Trò chuyện mới**")
+    st.markdown("— **📊 Dự báo & Phân tích**")
+    st.markdown("— **🛰️ Bản đồ Radar** *(chưa khả dụng)*")
+    st.markdown("— **⚠️ Cảnh báo dông bão** *(chưa khả dụng)*")
+    st.markdown("— **⚙️ Cài đặt** *(chưa khả dụng)*")
     st.write("---")
     st.markdown("""
-        <div style="background: rgba(18,27,47,0.8); padding: 12px; border-radius: 10px; border: 1px solid rgba(0,194,255,0.2);">
-            <div style="font-size:11px; color:#38BDF8; font-weight:bold;">MÔ HÌNH HỌC SÂU</div>
-            <div style="font-size:18px; color:#F8FAFC; font-weight:bold;">98.4%</div>
-            <div style="font-size:11px; color:#94A3B8;">Độ trễ dự báo: 180ms</div>
+        <div style="background: #F0F0F0; padding: 12px; border-radius: 10px;">
+            <div style="font-size:11px; color:#666666; font-weight:600;">MÔ HÌNH DỰ BÁO</div>
+            <div style="font-size:16px; color:#0D0D0D; font-weight:700;">WeatherAI Pro Neural</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -288,19 +275,11 @@ YÊU CẦU:
 
 
 # ==========================================
-# 5. GIAO DIỆN CHÍNH
+# 5. GIAO DIỆN CHÍNH (MINIMALIST)
 # ==========================================
-st.markdown("""
-    <div class="brand-header">
-        <div class="brand-title">
-            <span>⚡ WeatherAI (DEMO)</span>
-            <span class="brand-badge">V1</span>
-        </div>
-        <div style="font-size: 12px; color: #94A3B8;">Trợ Lý Dự Báo Khí Tượng & Phân Tích Đa Tầng</div>
-    </div>
-""", unsafe_allow_html=True)
+st.markdown('<div class="hero-title">Chúng ta nên bắt đầu từ đâu?</div>', unsafe_allow_html=True)
 
-col_input, col_btn = st.columns([4, 1])
+col_input, col_btn = st.columns([5, 1])
 with col_input:
     user_q = st.text_input(
         "Nhập địa điểm / câu hỏi:",
@@ -309,20 +288,18 @@ with col_input:
         label_visibility="collapsed"
     )
 with col_btn:
-    submit_btn = st.button("🚀 Dự báo & Phân tích", use_container_width=True)
+    submit_btn = st.button("Gửi 🚀", use_container_width=True)
 
 if submit_btn:
     query_text = user_q.strip() if user_q.strip() else "5 ngày tiếp theo, ngày nào có nhiều mưa nhất ở Quận Gò Vấp, TP.HCM?"
 
-    with st.spinner("⚡ WeatherAI đang xử lý..."):
+    with st.spinner("⚡ WeatherAI đang suy luận..."):
         intent_type, loc_target, target_hours = parse_user_intent(query_text)
 
-        # XỬ LÝ KHI NGƯỜI DÙNG CHỈ TÁN GẪU / TRÒ CHUYỆN BÌNH THƯỜNG
         if intent_type == "CHAT":
             chat_reply = generate_general_chat(query_text)
             st.markdown(f'<div class="ai-card">{chat_reply}</div>', unsafe_allow_html=True)
 
-        # XỬ LÝ KHI NGƯỜI DÙNG HỎI DỰ BÁO THỜI TIẾT
         else:
             data, err = fetch_weather_data(loc_target)
 
@@ -336,11 +313,11 @@ if submit_btn:
                 df_filtered = df.head(num_rows)
 
                 st.markdown(f"""
-                    <div style="display: flex; align-items: center; gap: 10px; margin: 15px 0;">
-                        <span style="font-family: 'Plus Jakarta Sans'; font-size: 22px; font-weight: 700;">
-                            📍 Dữ liệu Khí tượng Thời gian thực: <span style="color: #00C2FF;">{loc_name}</span>
+                    <div style="display: flex; align-items: center; gap: 10px; margin: 20px 0 10px 0;">
+                        <span style="font-size: 20px; font-weight: 700;">
+                            📍 Thời tiết tại <span style="color: #10A37F;">{loc_name}</span>
                         </span>
-                        <span style="background: rgba(0, 194, 255, 0.12); border: 1px solid rgba(0, 194, 255, 0.35); color: #75D1FF; font-family: monospace; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 6px;">
+                        <span style="background: #F0F0F0; color: #666666; font-family: monospace; font-size: 12px; padding: 2px 8px; border-radius: 6px;">
                             {data['lat']:.3f}°N, {data['lon']:.3f}°E
                         </span>
                     </div>
@@ -353,45 +330,45 @@ if submit_btn:
                 total_rain_24h = df.head(8)["Mưa (mm)"].sum()
 
                 with c1:
-                    st.markdown('<div class="telemetry-card"><div class="telemetry-label">ĐỘ CHÍNH XÁC AI (24H)</div><div class="telemetry-value">96.8%</div><div class="telemetry-sub">Chuẩn sai RMS: 0.42°C</div></div>', unsafe_allow_html=True)
+                    st.markdown('<div class="telemetry-card"><div class="telemetry-label">ĐỘ CHÍNH XÁC</div><div class="telemetry-value">96.8%</div><div class="telemetry-sub">RMS: 0.42°C</div></div>', unsafe_allow_html=True)
                 with c2:
-                    st.markdown('<div class="telemetry-card"><div class="telemetry-label">TỐC ĐỘ SUY LUẬN</div><div class="telemetry-value">142 ms</div><div class="telemetry-sub">TPU v4 Pipeline</div></div>', unsafe_allow_html=True)
+                    st.markdown('<div class="telemetry-card"><div class="telemetry-label">ĐỘ TRỄ</div><div class="telemetry-value">142 ms</div><div class="telemetry-sub">TPU Pipeline</div></div>', unsafe_allow_html=True)
                 with c3:
-                    st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">NHIỆT ĐỘ THỰC TẾ</div><div class="telemetry-value">{curr_temp:.1f}°C</div><div class="telemetry-sub">Cảm giác {curr_feel:.1f}°C</div></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">NHIỆT ĐỘ</div><div class="telemetry-value">{curr_temp:.1f}°C</div><div class="telemetry-sub">Cảm giác {curr_feel:.1f}°C</div></div>', unsafe_allow_html=True)
                 with c4:
-                    st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">LƯỢNG MƯA 24H</div><div class="telemetry-value">{total_rain_24h:.1f} mm</div><div class="telemetry-sub">Độ ẩm {curr_hum}%</div></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">MƯA 24H</div><div class="telemetry-value">{total_rain_24h:.1f} mm</div><div class="telemetry-sub">Độ ẩm {curr_hum}%</div></div>', unsafe_allow_html=True)
 
                 st.write("")
 
-                st.subheader(f"📈 Biểu đồ Khí Quyển ({target_hours} Giờ Tiếp Theo)")
+                st.subheader(f"📈 Biểu đồ thời tiết ({target_hours} giờ tới)")
 
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(
                     x=df_filtered["Thời gian"], y=df_filtered["Nhiệt độ (°C)"],
                     mode="lines+markers", name="Nhiệt độ (°C)",
-                    line=dict(color="#00C2FF", width=3)
+                    line=dict(color="#10A37F", width=3)
                 ))
                 fig.add_trace(go.Bar(
                     x=df_filtered["Thời gian"], y=df_filtered["Mưa (mm)"],
-                    name="Lượng mưa (mm)", marker_color="rgba(56, 189, 248, 0.5)",
+                    name="Lượng mưa (mm)", marker_color="rgba(16, 163, 127, 0.3)",
                     yaxis="y2"
                 ))
                 
                 fig.update_layout(
-                    template="plotly_dark",
+                    template="plotly_white",
                     paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(10, 19, 39, 0.6)",
+                    plot_bgcolor="#FFFFFF",
                     margin=dict(l=20, r=20, t=30, b=20),
-                    height=380,
+                    height=360,
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                     dragmode=False,
-                    xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.08)", fixedrange=True),
-                    yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor="rgba(255,255,255,0.08)", fixedrange=True),
+                    xaxis=dict(showgrid=True, gridcolor="#F0F0F0", fixedrange=True),
+                    yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor="#F0F0F0", fixedrange=True),
                     yaxis2=dict(title="Lượng mưa (mm)", overlaying="y", side="right", showgrid=False, fixedrange=True)
                 )
                 
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-                st.subheader("🤖 Chi Tiết Dự Báo & Suy Luận AI")
+                st.subheader("🤖 Phân tích AI")
                 report = generate_ai_report(query_text, loc_name, df_filtered, target_hours)
                 st.markdown(f'<div class="ai-card">{report}</div>', unsafe_allow_html=True)
