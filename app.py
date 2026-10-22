@@ -43,7 +43,7 @@ with st.sidebar:
     # Nút chuyển đổi giao diện
     theme_choice = st.radio(
         "🎨 Chế độ giao diện:",
-        ["☀️ ChatGPT Minimalist (Mới)", "🌙 Dark Mode Glassmorphism (Cũ)"],
+        ["☀️Light Mode", "🌙 Dark Mode"],
         index=0
     )
     is_dark = "Dark Mode" in theme_choice
