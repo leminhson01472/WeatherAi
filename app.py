@@ -539,4 +539,4 @@ else:
 
                 st.write("")
                 st.subheader("🛰️ Bản đồ Radar Mây Mưa & Vệ Tinh Trực Tiếp (Theo dõi Bão)")
-                windy_storm_url = f"https://embed.windy.com/embed2.html?lat={storm_lat}&lon={storm_lon}&detailLat={storm_lat}&detailLon={storm_lon}&width=100%25&height=500&zoom=5&level=surface&overlay=wind&product=ecm
+                windy_storm_url = f("https://embed.windy.com/embed2.html?lat={storm_lat}&lon={storm_lon}&detailLat={storm_lat}&detailLon={storm_lon}&width=100%25&height=500&zoom=5&level=surface&overlay=wind&product=ecm")
