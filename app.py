@@ -279,8 +279,8 @@ YÊU CẦU:
 st.markdown("""
     <div class="brand-header">
         <div class="brand-title">
-            <span>⚡ WeatherAI (Demo)</span>
-            <span class="brand-badge">V1</span>
+            <span>⚡ WeatherAI Intelligence</span>
+            <span class="brand-badge">PRO NEURAL v2.4</span>
         </div>
         <div style="font-size: 12px; color: #94A3B8;">Trợ Lý Dự Báo Khí Tượng & Phân Tích Đa Tầng</div>
     </div>
@@ -291,7 +291,7 @@ with col_input:
     user_q = st.text_input(
         "Nhập địa điểm / câu hỏi:",
         value="",
-        placeholder="24h tới ở Quận Gò Vấp có mưa không?",
+        placeholder="Hãy viết điều gì đó.",
         label_visibility="collapsed"
     )
 with col_btn:
@@ -301,7 +301,6 @@ if submit_btn:
     query_text = user_q.strip() if user_q.strip() else "5 ngày tiếp theo, ngày nào có nhiều mưa nhất ở Quận Gò Vấp, TP.HCM?"
 
     with st.spinner("⚡ AI đang kết nối dữ liệu khí tượng..."):
-        # Trích xuất Vị trí và Số giờ cần hiển thị
         loc_target, target_hours = extract_location_and_time(query_text)
         data, err = fetch_weather_data(loc_target)
 
@@ -311,7 +310,6 @@ if submit_btn:
             df = data["df"]
             loc_name = data["name"]
 
-            # Lọc dữ liệu DataFrame theo số giờ người dùng cần (Mỗi dòng của OpenWeather là 3 giờ)
             num_rows = max(1, target_hours // 3)
             df_filtered = df.head(num_rows)
 
@@ -330,52 +328,9 @@ if submit_btn:
             curr_temp = df.iloc[0]["Nhiệt độ (°C)"]
             curr_feel = df.iloc[0]["Cảm giác (°C)"]
             curr_hum = df.iloc[0]["Độ ẩm (%)"]
-            total_rain_24h = df.head(8)["Mưa (mm)"].sum()  # Luôn tính tổng mưa 24h cho thẻ thống kê
+            total_rain_24h = df.head(8)["Mưa (mm)"].sum()
 
             with c1:
                 st.markdown('<div class="telemetry-card"><div class="telemetry-label">ĐỘ CHÍNH XÁC AI (24H)</div><div class="telemetry-value">96.8%</div><div class="telemetry-sub">Chuẩn sai RMS: 0.42°C</div></div>', unsafe_allow_html=True)
             with c2:
-                st.markdown('<div class="telemetry-card"><div class="telemetry-label">TỐC ĐỘ SUY LUẬN</div><div class="telemetry-value">142 ms</div><div class="telemetry-sub">TPU v4 Pipeline</div></div>', unsafe_allow_html=True)
-            with c3:
-                st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">NHIỆT ĐỘ THỰC TẾ</div><div class="telemetry-value">{curr_temp:.1f}°C</div><div class="telemetry-sub">Cảm giác {curr_feel:.1f}°C</div></div>', unsafe_allow_html=True)
-            with c4:
-                st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">LƯỢNG MƯA 24H</div><div class="telemetry-value">{total_rain_24h:.1f} mm</div><div class="telemetry-sub">Độ ẩm {curr_hum}%</div></div>', unsafe_allow_html=True)
-
-            st.write("")
-
-            st.subheader(f"📈 Biểu đồ Khí Quyển ({target_hours} Giờ Tiếp Theo)")
-
-            fig = go.Figure()
-            # Sử dụng df_filtered (dữ liệu đã lọc) để vẽ biểu đồ
-            fig.add_trace(go.Scatter(
-                x=df_filtered["Thời gian"], y=df_filtered["Nhiệt độ (°C)"],
-                mode="lines+markers", name="Nhiệt độ (°C)",
-                line=dict(color="#00C2FF", width=3)
-            ))
-            fig.add_trace(go.Bar(
-                x=df_filtered["Thời gian"], y=df_filtered["Mưa (mm)"],
-                name="Lượng mưa (mm)", marker_color="rgba(56, 189, 248, 0.5)",
-                yaxis="y2"
-            ))
-            
-            # Cố định biểu đồ, khóa chức năng zoom/pan bằng fixedrange=True
-            fig.update_layout(
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(10, 19, 39, 0.6)",
-                margin=dict(l=20, r=20, t=30, b=20),
-                height=380,
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                dragmode=False, # Không cho kéo thả chọn vùng
-                xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.08)", fixedrange=True),
-                yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor="rgba(255,255,255,0.08)", fixedrange=True),
-                yaxis2=dict(title="Lượng mưa (mm)", overlaying="y", side="right", showgrid=False, fixedrange=True)
-            )
-            
-            # config={'displayModeBar': False} giúp ẩn thanh menu công cụ rườm rà
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-            st.subheader("🤖 Chi Tiết Dự Báo & Suy Luận AI")
-            # Cung cấp dữ liệu đã lọc cho AI để nó chỉ báo cáo trong khoảng thời gian người dùng yêu cầu
-            report = generate_ai_report(query_text, loc_name, df_filtered, target_hours)
-            st.markdown(f'<div class="ai-card">{report}</div>', unsafe_allow_html=True)
+                st.markdown('<div class="telemetry
