@@ -161,12 +161,13 @@ def extract_location(user_question):
     today_str = datetime.now(gio_viet_nam).strftime("%d/%m/%Y %H:%M:%S")
 
     prompt = f"""
-Trích xuất tên địa điểm từ câu hỏi để tra cứu thời tiết.
-Nếu không có địa điểm cụ thể, trả về 'Quan Go Vap, Ho Chi Minh'.
+Nhiệm vụ: Trích xuất tên Tỉnh/Thành phố hoặc Huyện lớn nhất từ câu hỏi người dùng để phục vụ tra cứu tọa độ khí tượng toàn cầu.
+Nếu người dùng nhập Thôn/Xã/Ấp/Bản, hãy lấy tên Huyện hoặc Tỉnh tương ứng (Ví dụ: 'Thôn Tiên Châu, Tuy An Đông, Đắk Lắk' -> 'Tuy An, Dak Lak' hoặc 'Dak Lak').
+Nếu không có thông tin, trả về 'Quan Go Vap, Ho Chi Minh'.
 Thời gian hiện tại: {today_str}.
 
 Câu hỏi: {user_question}
-Chỉ trả về DUY NHẤT tên địa điểm bằng tiếng Anh hoặc tiếng Việt không dấu.
+Chỉ trả về DUY NHẤT tên địa danh (Tỉnh/Huyện) bằng tiếng Anh hoặc tiếng Việt không dấu.
 """
     try:
         res = client.chat.completions.create(
@@ -180,35 +181,59 @@ Chỉ trả về DUY NHẤT tên địa điểm bằng tiếng Anh hoặc tiến
 
 
 def fetch_weather_data(location_name):
-    geo_url = f"http://api.openweathermap.org/geo/1.0/direct?q={location_name},VN&limit=1&appid={WEATHER_KEY}"
-    geo_res = requests.get(geo_url, timeout=10).json()
+    def safe_get_geo(query):
+        url = f"http://api.openweathermap.org/geo/1.0/direct?q={query}&limit=1&appid={WEATHER_KEY}"
+        try:
+            r = requests.get(url, timeout=10)
+            if r.status_code == 200:
+                data = r.json()
+                if isinstance(data, list) and len(data) > 0:
+                    return data[0]
+        except Exception:
+            pass
+        return None
 
-    if not geo_res:
-        geo_url = f"http://api.openweathermap.org/geo/1.0/direct?q={location_name}&limit=1&appid={WEATHER_KEY}"
-        geo_res = requests.get(geo_url, timeout=10).json()
+    # Lần 1: Tìm địa điểm chính xác có mã quốc gia VN
+    geo_data = safe_get_geo(f"{location_name},VN")
 
-    if not geo_res:
-        return None, f"Không tìm thấy vị trí: '{location_name}'"
+    # Lần 2: Thử tìm tự do không kèm mã VN
+    if not geo_data:
+        geo_data = safe_get_geo(location_name)
 
-    lat, lon = geo_res[0]['lat'], geo_res[0]['lon']
-    display_name = geo_res[0].get('local_names', {}).get('vi', geo_res[0]['name'])
+    # Lần 3: Trích xuất từ đơn lập (Tỉnh/Thành) nếu nhập từ khóa quá dài
+    if not geo_data and "," in location_name:
+        last_part = location_name.split(",")[-1].strip()
+        geo_data = safe_get_geo(f"{last_part},VN")
+
+    # Lần 4: Fallback mặc định về TP. Hồ Chí Minh nếu không có dữ liệu nào khớp
+    if not geo_data:
+        geo_data = safe_get_geo("Ho Chi Minh,VN")
+
+    if not geo_data or not isinstance(geo_data, dict) or 'lat' not in geo_data or 'lon' not in geo_data:
+        return None, f"Không thể tra cứu dữ liệu thời tiết cho địa điểm: '{location_name}'"
+
+    lat, lon = geo_data['lat'], geo_data['lon']
+    display_name = geo_data.get('local_names', {}).get('vi', geo_data.get('name', location_name))
 
     forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={WEATHER_KEY}&units=metric&lang=vi"
-    forecast_res = requests.get(forecast_url, timeout=10).json()
+    try:
+        forecast_res = requests.get(forecast_url, timeout=10).json()
+    except Exception:
+        return None, "Không thể kết nối đến máy chủ thời tiết."
 
-    if forecast_res.get("cod") != "200":
-        return None, "Lỗi kết nối tới dịch vụ OpenWeatherMap."
+    if not isinstance(forecast_res, dict) or str(forecast_res.get("cod")) != "200":
+        return None, "Dữ liệu dự báo thời tiết không khả dụng."
 
     records = []
-    for item in forecast_res["list"]:
+    for item in forecast_res.get("list", []):
         rain_vol = item.get("rain", {}).get("3h", 0)
         records.append({
-            "Thời gian": item["dt_txt"],
-            "Nhiệt độ (°C)": item["main"]["temp"],
-            "Cảm giác (°C)": item["main"]["feels_like"],
-            "Độ ẩm (%)": item["main"]["humidity"],
+            "Thời gian": item.get("dt_txt", ""),
+            "Nhiệt độ (°C)": item.get("main", {}).get("temp", 0),
+            "Cảm giác (°C)": item.get("main", {}).get("feels_like", 0),
+            "Độ ẩm (%)": item.get("main", {}).get("humidity", 0),
             "Mưa (mm)": rain_vol,
-            "Mô tả": item["weather"][0]["description"].capitalize()
+            "Mô tả": item.get("weather", [{}])[0].get("description", "").capitalize()
         })
 
     df = pd.DataFrame(records)
@@ -230,7 +255,7 @@ DỮ LIỆU DỰ BÁO THỜI TIẾT TẠI '{location_name}':
 YÊU CẦU:
 1. Trả lời trực tiếp câu hỏi người dùng theo phong cách báo cáo khí tượng chuyên nghiệp.
 2. Nêu rõ ngày/khung giờ mưa nhiều nhất và biến động nhiệt độ.
-3. Đưa ra 2 khuyến nghị thực tế: (1) Giao thông & Di chuyển; (2) Hoạt động ngoài trời.
+3. Đưa ra 2 khuyến nghị thực tế: (1) Giao thông & Di chuyển; (2) Hoạt động ngoài trời/Nông nghiệp.
 """
     try:
         res = client.chat.completions.create(
