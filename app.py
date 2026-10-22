@@ -4,6 +4,7 @@ import requests
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from streamlit_js_eval import get_geolocation
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -40,10 +41,9 @@ MODEL = "gpt-4o"
 with st.sidebar:
     st.markdown("### ⚡ WeatherAI")
     
-    # Nút chuyển đổi giao diện
     theme_choice = st.radio(
         "🎨 Chế độ giao diện:",
-        ["☀️Light Mode", "🌙 Dark Mode"],
+        ["☀️ ChatGPT Minimalist (Mới)", "🌙 Dark Mode Glassmorphism (Cũ)"],
         index=0
     )
     is_dark = "Dark Mode" in theme_choice
@@ -66,7 +66,6 @@ with st.sidebar:
 # 3. DYNAMIC CSS STYLES
 # ==========================================
 if is_dark:
-    # BỘ CSS DARK MODE GLASSMORPHISM (GIAO DIỆN CỦ)
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
@@ -144,7 +143,6 @@ if is_dark:
         </style>
     """, unsafe_allow_html=True)
 else:
-    # BỘ CSS LIGHT MODE CHATGPT (GIAO DIỆN MỚI)
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -231,19 +229,23 @@ else:
         </style>
     """, unsafe_allow_html=True)
 
+# Lấy GPS thiết bị ngầm
+user_gps = get_geolocation()
+
 # ==========================================
 # 4. HÀM XỬ LÝ DỮ LIỆU & AI
 # ==========================================
 def parse_user_intent(user_question):
     prompt = f"""
 Phân tích câu hỏi người dùng và trả về định dạng JSON/Text ngắn gọn:
-1. Ý định (is_weather): Trả về 'WEATHER' nếu người dùng hỏi tra cứu thời tiết/lượng mưa/nhiệt độ ở đâu đó hoặc khoảng thời gian nào đó. Trả về 'CHAT' nếu chỉ là câu chào hỏi, tán gẫu, hỏi đáp chung không yêu cầu tra cứu thời tiết cụ thể.
-2. Tên địa điểm (location): Tên Tỉnh/Thành/Huyện (hoặc 'Quan Go Vap, Ho Chi Minh' nếu không nói địa điểm).
+1. Ý định (is_weather): Trả về 'WEATHER' nếu người dùng hỏi tra cứu thời tiết/lượng mưa/nhiệt độ/thời tiết nơi ở. Trả về 'CHAT' nếu chỉ là câu chào hỏi, tán gẫu, hỏi đáp chung không yêu cầu tra cứu thời tiết cụ thể.
+2. Tên địa điểm (location): Tên Tỉnh/Thành/Huyện. Nếu người dùng KHÔNG ghi rõ địa điểm hoặc hỏi chung chung (ví dụ "thời tiết hôm nay thế nào", "mưa không"), trả về 'USE_GPS'.
 3. Khoảng thời gian (hours): Số giờ cần xem (24, 48, 72, 120). Mặc định là 120 nếu không rõ.
 
 Chỉ trả về 1 dòng duy nhất theo định dạng: LOẠI|TÊN_ĐỊA_ĐIỂM|SỐ_GIỜ
 Ví dụ 1: WEATHER|Quan Go Vap, Ho Chi Minh|24
-Ví dụ 2: CHAT|NONE|0
+Ví dụ 2: WEATHER|USE_GPS|24
+Ví dụ 3: CHAT|NONE|0
 
 Câu hỏi: {user_question}
 """
@@ -256,11 +258,47 @@ Câu hỏi: {user_question}
         
         parts = res.split("|")
         intent_type = parts[0].strip().upper() if len(parts) > 0 else "CHAT"
-        loc = parts[1].strip() if len(parts) > 1 else "Quan Go Vap, Ho Chi Minh"
+        loc = parts[1].strip() if len(parts) > 1 else "USE_GPS"
         hrs = int(parts[2].strip()) if (len(parts) > 2 and parts[2].strip().isdigit()) else 120
         return intent_type, loc, hrs
     except Exception:
-        return "CHAT", "Quan Go Vap, Ho Chi Minh", 120
+        return "CHAT", "USE_GPS", 120
+
+
+def fetch_weather_by_coords(lat, lon):
+    # Lấy tên địa điểm từ tọa độ GPS
+    geo_url = f"http://api.openweathermap.org/geo/1.0/reverse?lat={lat}&lon={lon}&limit=1&appid={WEATHER_KEY}"
+    display_name = "Vị trí GPS của bạn"
+    try:
+        geo_res = requests.get(geo_url, timeout=10).json()
+        if isinstance(geo_res, list) and len(geo_res) > 0:
+            display_name = geo_res[0].get('local_names', {}).get('vi', geo_res[0].get('name', display_name))
+    except Exception:
+        pass
+
+    forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={WEATHER_KEY}&units=metric&lang=vi"
+    try:
+        forecast_res = requests.get(forecast_url, timeout=10).json()
+    except Exception:
+        return None, "Không thể kết nối đến máy chủ thời tiết."
+
+    if not isinstance(forecast_res, dict) or str(forecast_res.get("cod")) != "200":
+        return None, "Dữ liệu dự báo thời tiết không khả dụng."
+
+    records = []
+    for item in forecast_res.get("list", []):
+        rain_vol = item.get("rain", {}).get("3h", 0)
+        records.append({
+            "Thời gian": item.get("dt_txt", ""),
+            "Nhiệt độ (°C)": item.get("main", {}).get("temp", 0),
+            "Cảm giác (°C)": item.get("main", {}).get("feels_like", 0),
+            "Độ ẩm (%)": item.get("main", {}).get("humidity", 0),
+            "Mưa (mm)": rain_vol,
+            "Mô tả": item.get("weather", [{}])[0].get("description", "").capitalize()
+        })
+
+    df = pd.DataFrame(records)
+    return {"name": display_name, "df": df, "lat": lat, "lon": lon}, None
 
 
 def fetch_weather_data(location_name):
@@ -289,31 +327,7 @@ def fetch_weather_data(location_name):
         return None, f"Không thể tra cứu tọa độ cho địa điểm: '{location_name}'"
 
     lat, lon = geo_data['lat'], geo_data['lon']
-    display_name = geo_data.get('local_names', {}).get('vi', geo_data.get('name', location_name))
-
-    forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={WEATHER_KEY}&units=metric&lang=vi"
-    try:
-        forecast_res = requests.get(forecast_url, timeout=10).json()
-    except Exception:
-        return None, "Không thể kết nối đến máy chủ thời tiết."
-
-    if not isinstance(forecast_res, dict) or str(forecast_res.get("cod")) != "200":
-        return None, "Dữ liệu dự báo thời tiết không khả dụng."
-
-    records = []
-    for item in forecast_res.get("list", []):
-        rain_vol = item.get("rain", {}).get("3h", 0)
-        records.append({
-            "Thời gian": item.get("dt_txt", ""),
-            "Nhiệt độ (°C)": item.get("main", {}).get("temp", 0),
-            "Cảm giác (°C)": item.get("main", {}).get("feels_like", 0),
-            "Độ ẩm (%)": item.get("main", {}).get("humidity", 0),
-            "Mưa (mm)": rain_vol,
-            "Mô tả": item.get("weather", [{}])[0].get("description", "").capitalize()
-        })
-
-    df = pd.DataFrame(records)
-    return {"name": display_name, "df": df, "lat": lat, "lon": lon}, None
+    return fetch_weather_by_coords(lat, lon)
 
 
 def generate_general_chat(user_question):
@@ -368,7 +382,7 @@ YÊU CẦU:
 # ==========================================
 # 5. GIAO DIỆN CHÍNH
 # ==========================================
-st.markdown('<div class="hero-title">WeatherAI (Demo)</div>', unsafe_allow_html=True)
+st.markdown('<div class="hero-title">WeatherAI(Demo)</div>', unsafe_allow_html=True)
 
 col_input, col_btn = st.columns([5, 1])
 with col_input:
@@ -382,9 +396,9 @@ with col_btn:
     submit_btn = st.button("Gửi 🚀", use_container_width=True)
 
 if submit_btn:
-    query_text = user_q.strip() if user_q.strip() else "5 ngày tiếp theo, ngày nào có nhiều mưa nhất ở Quận Gò Vấp, TP.HCM?"
+    query_text = user_q.strip() if user_q.strip() else "Thời tiết hôm nay thế nào?"
 
-    with st.spinner("⚡ WeatherAI đang suy luận..."):
+    with st.spinner("⚡ WeatherAI đang định vị & lấy dữ liệu..."):
         intent_type, loc_target, target_hours = parse_user_intent(query_text)
 
         if intent_type == "CHAT":
@@ -392,7 +406,14 @@ if submit_btn:
             st.markdown(f'<div class="ai-card">{chat_reply}</div>', unsafe_allow_html=True)
 
         else:
-            data, err = fetch_weather_data(loc_target)
+            # KIỂM TRA ĐỊNH VỊ GPS NẾU KHÔNG CÓ TÊN ĐỊA ĐIỂM CỤ THỂ
+            if loc_target == "USE_GPS" and user_gps and "coords" in user_gps:
+                lat = user_gps["coords"]["latitude"]
+                lon = user_gps["coords"]["longitude"]
+                data, err = fetch_weather_by_coords(lat, lon)
+            else:
+                target_place = loc_target if loc_target != "USE_GPS" else "Ho Chi Minh"
+                data, err = fetch_weather_data(target_place)
 
             if err:
                 st.error(f"❌ {err}")
@@ -413,7 +434,7 @@ if submit_btn:
                             📍 Thời tiết tại <span style="color: {highlight_color};">{loc_name}</span>
                         </span>
                         <span style="background: {badge_bg}; color: {badge_text}; font-family: monospace; font-size: 12px; padding: 2px 8px; border-radius: 6px;">
-                            {data['lat']:.3f}°N, {data['lon']:.3f}°E
+                            🎯 {data['lat']:.3f}°N, {data['lon']:.3f}°E
                         </span>
                     </div>
                 """, unsafe_allow_html=True)
