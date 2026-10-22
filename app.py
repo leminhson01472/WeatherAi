@@ -57,7 +57,7 @@ with st.sidebar:
     st.markdown("Chức năng")
     st.markdown(" **📝 Trò chuyện mới**")
     st.markdown(" **📊 Dự báo & Phân tích**")
-    st.markdown(" **🛰️ Bản đồ Radar & Vệ tinh. Nguồn:Windy **")
+    st.markdown(" **🛰️ Bản đồ Radar & Vệ tinh *(chưa khả dụng)* **")
     st.markdown(" **⚠️ Cảnh báo giông bão** ")
     st.markdown(" **⚙️ Cài đặt** *(chưa khả dụng)*")
     st.write("---")
