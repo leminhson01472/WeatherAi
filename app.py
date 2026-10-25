@@ -77,7 +77,8 @@ with st.sidebar:
     if st.button("🗑️ Xóa lịch sử trò chuyện", use_container_width=True):
         st.session_state.chat_history = []
         st.rerun()
-    st.write("📊Dự đoán chứng khoán *coming soon*")
+    st.write("📊Dự đoán chứng khoán
+    *coming soon*")
     st.write("---")
     st.markdown("""
         <div style="background: rgba(128,128,128,0.1); padding: 12px; border-radius: 10px;">
