@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 # ==========================================
-# 1. CẤU HÌNH TRANG & KẾT NỐI API KEY
+# 1. CẤU HÌNH TRANG & API KEY
 # ==========================================
 load_dotenv()
 
@@ -18,7 +18,7 @@ AI_KEY = os.getenv("APIGIARE_API_KEY") or (st.secrets.get("APIGIARE_API_KEY") if
 WEATHER_KEY = os.getenv("OPENWEATHER_API_KEY") or (st.secrets.get("OPENWEATHER_API_KEY") if "OPENWEATHER_API_KEY" in st.secrets else None)
 
 st.set_page_config(
-    page_title="AetherWeather - Trợ lý Khí tượng AI",
+    page_title="WeatherAI - Trợ lý Khí tượng AI",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -37,7 +37,7 @@ client = OpenAI(
 MODEL = "gpt-4o"
 
 # ==========================================
-# CƠ CHẾ QUYỀN RIÊNG TƯ & LƯU TRỮ CHAT
+# 2. QUẢN LÝ PHIÊN CHAT RIÊNG TƯ
 # ==========================================
 if "user_session_id" not in st.session_state:
     st.session_state.user_session_id = str(uuid.uuid4())
@@ -71,17 +71,17 @@ except Exception:
     user_gps = None
 
 # ==========================================
-# 2. SIDEBAR NAVIGATION
+# 3. SIDEBAR NAVIGATION
 # ==========================================
 with st.sidebar:
     st.markdown("""
-        <div style="display: flex; items-center: center; gap: 12px; margin-bottom: 20px;">
-            <div style="width: 40px; height: 40px; border-radius: 50%; background: #a078ff; display: flex; align-items: center; justify-content: center; color: #ffffff; box-shadow: 0 0 20px rgba(160,120,255,0.4);">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: #00C2FF; display: flex; align-items: center; justify-content: center; color: #0A1327; box-shadow: 0 0 20px rgba(0,194,255,0.4); font-size: 20px;">
                 ⚡
             </div>
             <div>
-                <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px; font-weight: 700; color: #dae2fd !important;">AetherWeather</div>
-                <div style="font-size: 11px; color: #7bd0ff !important; font-weight: 600; text-transform: uppercase;">Trợ lý Khí tượng AI</div>
+                <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px; font-weight: 800; color: #F8FAFC !important;">WeatherAI Pro</div>
+                <div style="font-size: 11px; color: #38BDF8 !important; font-weight: 600; text-transform: uppercase;">Trợ lý Khí tượng AI</div>
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -106,14 +106,14 @@ with st.sidebar:
     )
     
     st.write("---")
-    st.markdown("<h4 style='color: #dae2fd !important;'>🔒 Lịch sử riêng tư</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #F8FAFC !important;'>🔒 Lịch sử riêng tư</h4>", unsafe_allow_html=True)
     
     if st.session_state.chat_history:
         chat_json_str = json.dumps(st.session_state.chat_history, ensure_ascii=False, indent=2)
         st.download_button(
             label="📥 Tải nhật ký chat (.json)",
             data=chat_json_str,
-            file_name=f"my_weather_chat_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            file_name=f"weatherai_chat_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
             mime="application/json",
             use_container_width=True
         )
@@ -126,61 +126,61 @@ with st.sidebar:
 
     st.write("---")
     st.markdown("""
-        <div style="background: rgba(23, 31, 51, 0.6); backdrop-filter: blur(12px); padding: 14px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1);">
-            <div style="font-size: 10px; color: #958ea0 !important; font-weight: 700; text-transform: uppercase;">MÔ HÌNH DỰ BÁO</div>
-            <div style="font-size: 14px; color: #d0bcff !important; font-weight: 700; margin-top: 4px;">Aether Core v4.2 Active</div>
+        <div style="background: rgba(18, 27, 47, 0.7); backdrop-filter: blur(12px); padding: 14px; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.2);">
+            <div style="font-size: 10px; color: #94A3B8 !important; font-weight: 700; text-transform: uppercase;">MÔ HÌNH DỰ BÁO</div>
+            <div style="font-size: 14px; color: #38BDF8 !important; font-weight: 700; margin-top: 4px;">WeatherAI Pro Neural</div>
         </div>
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. DYNAMIC CSS STYLES (AETHERIA GLASS - FIX TRIỆT ĐỂ CHỮ CHÌM)
+# 4. DYNAMIC CSS STYLES (ĐÈ MÀU CHỮ TRIỆT ĐỂ)
 # ==========================================
 if is_dark:
     st.markdown("""
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
 
         .block-container {
             padding-top: 2rem !important;
             padding-bottom: 2rem !important;
         }
 
-        /* NỀN TOÀN TRANG AETHERIA ABYSS */
+        /* NỀN TOÀN TRANG DARK GLASS */
         html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-            background-color: #0b1326 !important;
-            color: #dae2fd !important;
-            font-family: 'Manrope', sans-serif;
+            background-color: #0A1327 !important;
+            color: #F8FAFC !important;
+            font-family: 'Inter', sans-serif;
         }
 
         #MainMenu, footer {visibility: hidden;}
 
-        /* SIDEBAR GLASSMORPHISM & FIX CHỮ TƯƠNG PHẢN CAO */
+        /* SIDEBAR GLASSMORPHISM & SẮC NÉT CHỮ */
         [data-testid="stSidebar"] {
-            background-color: rgba(19, 27, 46, 0.8) !important;
+            background-color: rgba(5, 14, 33, 0.85) !important;
             backdrop-filter: blur(20px) !important;
-            border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-right: 1px solid rgba(56, 189, 248, 0.15) !important;
         }
 
-        /* ĐÈ MÀU CHỮ TOÀN BỘ TRONG SIDEBAR */
+        /* TẤT CẢ CHỮ TRONG SIDEBAR ÉP SANG MÀU SÁNG */
         [data-testid="stSidebar"] *, 
         [data-testid="stSidebar"] label, 
         [data-testid="stSidebar"] p, 
         [data-testid="stSidebar"] span, 
         [data-testid="stSidebar"] div {
-            color: #dae2fd !important;
+            color: #F8FAFC !important;
         }
 
-        /* NÚT RADIO TRONG SIDEBAR KHI SELECT */
+        /* NÚT RADIO ĐƯỢC CHỌN */
         [data-testid="stSidebar"] [data-aria-selected="true"] p {
-            color: #7bd0ff !important;
+            color: #38BDF8 !important;
             font-weight: 700 !important;
         }
 
-        /* KHU VỰC NHẬP LIỆU TEXT INPUT (GLASS CAPSULE) */
+        /* KHU VỰC Ô NHẬP LIỆU TEXT INPUT */
         .stTextInput > div > div > input {
-            background-color: rgba(6, 14, 32, 0.7) !important;
-            border: 1px solid rgba(208, 188, 255, 0.3) !important;
-            color: #ffffff !important;
+            background-color: rgba(18, 27, 47, 0.85) !important;
+            border: 1px solid rgba(56, 189, 248, 0.3) !important;
+            color: #FFFFFF !important;
             border-radius: 9999px !important;
             padding: 12px 24px !important;
             font-size: 14px !important;
@@ -188,24 +188,24 @@ if is_dark:
         }
 
         .stTextInput > div > div > input::placeholder {
-            color: #958ea0 !important;
+            color: #94A3B8 !important;
             opacity: 1 !important;
         }
 
         .stTextInput > div > div > input:focus {
-            border-color: #a078ff !important;
-            box-shadow: 0 0 16px rgba(160, 120, 255, 0.35) !important;
+            border-color: #00C2FF !important;
+            box-shadow: 0 0 16px rgba(0, 194, 255, 0.35) !important;
         }
 
-        /* NÚT SUBMIT FORM */
+        /* NÚT GỬI CÂU HỎI */
         .stButton > button, [data-testid="stFormSubmitButton"] > button {
-            background: linear-gradient(135deg, #a078ff 0%, #009bd1 100%) !important;
-            color: #ffffff !important;
+            background: linear-gradient(135deg, #00C2FF 0%, #0284C7 100%) !important;
+            color: #0A1327 !important;
             font-weight: 700 !important;
             border: none !important;
             border-radius: 9999px !important;
             padding: 10px 24px !important;
-            box-shadow: 0 8px 20px rgba(160, 120, 255, 0.3) !important;
+            box-shadow: 0 8px 20px rgba(0, 194, 255, 0.3) !important;
         }
 
         /* TIÊU ĐỀ CHÍNH */
@@ -214,17 +214,17 @@ if is_dark:
             font-family: 'Plus Jakarta Sans', sans-serif;
             font-size: 32px;
             font-weight: 800;
-            color: #dae2fd;
+            color: #F8FAFC;
             margin-top: 10px;
             margin-bottom: 20px;
             letter-spacing: -0.02em;
         }
 
-        /* THẺ ĐO ĐẠC TELEMETRY */
+        /* THẺ THÔNG SỐ TELEMETRY */
         .telemetry-card {
-            background: rgba(23, 31, 51, 0.65);
+            background: rgba(24, 35, 60, 0.75);
             backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.18);
             border-radius: 16px;
             padding: 18px;
             box-shadow: 0 12px 32px rgba(11, 19, 38, 0.5);
@@ -232,7 +232,7 @@ if is_dark:
         .telemetry-label {
             font-size: 11px;
             font-weight: 700;
-            color: #958ea0 !important;
+            color: #94A3B8 !important;
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
@@ -240,63 +240,63 @@ if is_dark:
             font-family: 'Plus Jakarta Sans', sans-serif;
             font-size: 26px;
             font-weight: 700;
-            color: #dae2fd !important;
+            color: #F8FAFC !important;
             margin: 6px 0;
         }
         .telemetry-sub {
             font-size: 12px;
-            color: #7bd0ff !important;
+            color: #38BDF8 !important;
         }
 
-        /* KHUNG CHAT USER & AI GLASS PANEL */
+        /* KHUNG CHAT USER & AI */
         .user-msg-card {
-            background: rgba(160, 120, 255, 0.15);
-            border: 1px solid rgba(160, 120, 255, 0.3);
+            background: rgba(56, 189, 248, 0.15);
+            border: 1px solid rgba(56, 189, 248, 0.3);
             border-radius: 16px;
             padding: 16px 20px;
             margin-top: 15px;
-            color: #dae2fd !important;
+            color: #F8FAFC !important;
             backdrop-filter: blur(12px);
         }
 
         .ai-card {
-            background: rgba(23, 31, 51, 0.75);
-            border: 1px solid rgba(123, 208, 255, 0.3);
-            border-left: 4px solid #7bd0ff;
+            background: rgba(18, 27, 47, 0.85);
+            border: 1px solid rgba(0, 194, 255, 0.35);
+            border-left: 4px solid #00C2FF;
             border-radius: 16px;
             padding: 20px;
             margin-top: 10px;
             margin-bottom: 20px;
             line-height: 1.6;
-            color: #dae2fd !important;
+            color: #F8FAFC !important;
             box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
             backdrop-filter: blur(16px);
         }
         
         .alert-box {
-            background: rgba(147, 0, 10, 0.25);
-            border: 1px solid rgba(255, 180, 171, 0.3);
-            border-left: 4px solid #ffb4ab;
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            border-left: 4px solid #EF4444;
             border-radius: 16px;
             padding: 18px;
             margin: 15px 0;
-            color: #ffdad6 !important;
+            color: #F8FAFC !important;
         }
         .safe-box {
-            background: rgba(0, 155, 209, 0.15);
-            border: 1px solid rgba(123, 208, 255, 0.3);
-            border-left: 4px solid #7bd0ff;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-left: 4px solid #10B981;
             border-radius: 16px;
             padding: 18px;
             margin: 15px 0;
-            color: #dae2fd !important;
+            color: #F8FAFC !important;
         }
         </style>
     """, unsafe_allow_html=True)
 else:
     st.markdown("""
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap');
 
         .block-container {
             padding-top: 2rem !important;
@@ -304,15 +304,15 @@ else:
         }
 
         html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-            background-color: #F8FAFC !important;
-            color: #0F172A !important;
-            font-family: 'Manrope', sans-serif;
+            background-color: #FFFFFF !important;
+            color: #0D0D0D !important;
+            font-family: 'Inter', sans-serif;
         }
 
         #MainMenu, footer {visibility: hidden;}
 
         [data-testid="stSidebar"] {
-            background-color: #FFFFFF !important;
+            background-color: #F8FAFC !important;
             border-right: 1px solid #E2E8F0 !important;
         }
 
@@ -328,7 +328,7 @@ else:
             font-family: 'Plus Jakarta Sans', sans-serif;
             font-size: 32px;
             font-weight: 700;
-            color: #0F172A;
+            color: #0D0D0D;
             margin-top: 10px;
             margin-bottom: 20px;
         }
@@ -336,7 +336,7 @@ else:
         .stTextInput > div > div > input {
             background-color: #FFFFFF !important;
             border: 1px solid #CBD5E1 !important;
-            color: #0F172A !important;
+            color: #0D0D0D !important;
             border-radius: 9999px !important;
             padding: 12px 20px !important;
             font-size: 14px !important;
@@ -344,7 +344,7 @@ else:
         }
 
         .stButton > button, [data-testid="stFormSubmitButton"] > button {
-            background: #0F172A !important;
+            background: #000000 !important;
             color: #FFFFFF !important;
             font-weight: 600 !important;
             border: none !important;
@@ -353,7 +353,7 @@ else:
         }
 
         .telemetry-card {
-            background: #FFFFFF;
+            background: #F8FAFC;
             border: 1px solid #E2E8F0;
             border-radius: 16px;
             padding: 18px;
@@ -407,19 +407,19 @@ else:
             color: #991B1B !important;
         }
         .safe-box {
-            background: #F0F9FF;
-            border: 1px solid #BAE6FD;
-            border-left: 4px solid #0284C7;
+            background: #ECFDF5;
+            border: 1px solid #6EE7B7;
+            border-left: 4px solid #10B981;
             border-radius: 16px;
             padding: 18px;
             margin: 15px 0;
-            color: #0369A1 !important;
+            color: #065F46 !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. HÀM XỬ LÝ DỮ LIỆU & AI
+# 5. HÀM XỬ LÝ DỮ LIỆU & AI
 # ==========================================
 def parse_user_intent(user_question):
     prompt = f"""
@@ -534,7 +534,7 @@ def fetch_weather_data(location_name):
 
 def generate_general_chat(user_question):
     system_prompt = """
-Bạn là Trợ lý AI Khí tượng chuyên sâu AetherWeather AI.
+Bạn là Trợ lý AI Khí tượng chuyên sâu WeatherAI Pro.
 
 QUY TẮC ĐIỀU HƯỚNG BẮC CẦU:
 1. Nếu người dùng chào hỏi cơ bản: Trả lời lịch sự, ngắn gọn và giới thiệu bạn có thể giúp gì về thời tiết/dự báo/dông bão.
@@ -564,7 +564,7 @@ def generate_ai_report(user_question, location_name, df_weather, target_hours):
     weather_summary = df_weather.to_string(index=False) if df_weather is not None else ""
 
     system_prompt = f"""
-Bạn là Trợ lý AI Khí tượng AetherWeather Intelligence Pro.
+Bạn là Trợ lý AI Khí tượng WeatherAI Intelligence Pro.
 Thời gian hiện tại: {today_str}.
 
 DỮ LIỆU KHÍ TƯỢNG {target_hours} GIỜ TỚI TẠI KHU VỰC THAM CHIẾU '{location_name}':
@@ -593,7 +593,7 @@ YÊU CẦU TRẢ LỜI:
 
 
 # ==========================================
-# 5. ĐIỀU HƯỚNG GIAO DIỆN THEO MENU
+# 6. ĐIỀU HƯỚNG GIAO DIỆN THEO MENU
 # ==========================================
 
 # TAB 1: 🛰️ BẢN ĐỒ RADAR TRỰC TIẾP
@@ -640,14 +640,14 @@ elif active_menu == "⚠️ Cảnh báo dông bão":
 
 # TAB 3: DỰ BÁO, PHÂN TÍCH & TRÒ CHUYỆN
 else:
-    st.markdown('<div class="hero-title">AetherWeather AI Dashboard</div>', unsafe_allow_html=True)
+    st.markdown('<div class="hero-title">WeatherAI(Demo)</div>', unsafe_allow_html=True)
 
     # 1. HIỂN THỊ LỊCH SỬ CHAT
     for idx, chat in enumerate(st.session_state.chat_history):
         st.markdown(f'<div class="user-msg-card"><b>🗣️ Bạn:</b> {chat["question"]}</div>', unsafe_allow_html=True)
 
         if chat["type"] == "CHAT":
-            st.markdown(f'<div class="ai-card"><b>🤖 Aether AI:</b><br>{chat["reply"]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="ai-card"><b>🤖 WeatherAI:</b><br>{chat["reply"]}</div>', unsafe_allow_html=True)
 
         elif chat["type"] == "STORM":
             st.markdown(f'<div class="ai-card"><b>🌀 Phân tích Siêu Bão:</b><br>{chat["report"]}</div>', unsafe_allow_html=True)
@@ -661,9 +661,9 @@ else:
             df_filtered = df_full.head(num_rows)
             loc_name = data["name"]
 
-            highlight_color = "#7bd0ff" if is_dark else "#0284C7"
-            badge_bg = "rgba(123, 208, 255, 0.15)" if is_dark else "#F0F9FF"
-            badge_text = "#7bd0ff" if is_dark else "#0369A1"
+            highlight_color = "#00C2FF" if is_dark else "#0284C7"
+            badge_bg = "rgba(0, 194, 255, 0.15)" if is_dark else "#F0F9FF"
+            badge_text = "#38BDF8" if is_dark else "#0369A1"
 
             st.markdown(f"""
                 <div style="display: flex; align-items: center; gap: 10px; margin: 15px 0 10px 0;">
@@ -691,11 +691,11 @@ else:
             with c4:
                 st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">LƯỢNG MƯA 24H & ĐỘ ẨM</div><div class="telemetry-value">{total_rain_24h:.1f} mm</div><div class="telemetry-sub">Độ ẩm {curr_hum}%</div></div>', unsafe_allow_html=True)
 
-            # Vẽ biểu đồ Plotly Đa Tầng
+            # Vẽ biểu đồ Plotly
             fig = go.Figure()
-            line_col = "#7bd0ff" if is_dark else "#0284C7"
-            bar_col = "rgba(160, 120, 255, 0.6)" if is_dark else "rgba(160, 120, 255, 0.4)"
-            bg_col = "rgba(11, 19, 38, 0.7)" if is_dark else "#FFFFFF"
+            line_col = "#00C2FF" if is_dark else "#0284C7"
+            bar_col = "rgba(56, 189, 248, 0.5)" if is_dark else "rgba(2, 132, 199, 0.3)"
+            bg_col = "rgba(10, 19, 39, 0.7)" if is_dark else "#FFFFFF"
             grid_col = "rgba(255, 255, 255, 0.08)" if is_dark else "#E2E8F0"
 
             fig.add_trace(go.Scatter(
@@ -723,7 +723,7 @@ else:
             )
             
             st.plotly_chart(fig, use_container_width=True, key=f"fig_{idx}", config={'displayModeBar': False})
-            st.markdown(f'<div class="ai-card"><b>🤖 Phân tích AI Aether:</b><br>{chat["report"]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="ai-card"><b>🤖 Phân tích WeatherAI:</b><br>{chat["report"]}</div>', unsafe_allow_html=True)
 
     # 2. KHU VỰC NHẬP LIỆU BẰNG ST.FORM (ENTER ĐỂ GỬI & TỰ ĐỘNG XÓA CHỮ)
     st.write("---")
@@ -733,11 +733,11 @@ else:
             user_q = st.text_input(
                 "Nhập địa điểm / câu hỏi:",
                 value="",
-                placeholder="Hỏi Aether AI (Nhấn Enter để gửi)...",
+                placeholder="Hỏi WeatherAI (Nhấn Enter để gửi)...",
                 label_visibility="collapsed"
             )
         with col_btn:
-            submit_btn = st.form_submit_button("Hỏi Aether AI 🚀", use_container_width=True)
+            submit_btn = st.form_submit_button("Hỏi WeatherAI 🚀", use_container_width=True)
 
     # 3. XỬ LÝ DỮ LIỆU
     if submit_btn and user_q.strip():
