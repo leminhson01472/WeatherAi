@@ -1,11 +1,13 @@
 import os
 import json
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone, timedelta
 import requests
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-import streamlit.components.v1 as components
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -17,21 +19,11 @@ load_dotenv()
 AI_KEY = os.getenv("APIGIARE_API_KEY") or (st.secrets.get("APIGIARE_API_KEY") if "APIGIARE_API_KEY" in st.secrets else None)
 WEATHER_KEY = os.getenv("OPENWEATHER_API_KEY") or (st.secrets.get("OPENWEATHER_API_KEY") if "OPENWEATHER_API_KEY" in st.secrets else None)
 
-st.set_page_config(
-    page_title="WeatherAI Pro - Trợ lý Khí tượng AI",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# Kiểm tra trạng thái Đăng nhập Google
-# ==========================================
-# 1. CẤU HÌNH TRANG & XÁC THỰC GOOGLE LOGIN
-# ==========================================
-load_dotenv()
-
-AI_KEY = os.getenv("APIGIARE_API_KEY") or (st.secrets.get("APIGIARE_API_KEY") if "APIGIARE_API_KEY" in st.secrets else None)
-WEATHER_KEY = os.getenv("OPENWEATHER_API_KEY") or (st.secrets.get("OPENWEATHER_API_KEY") if "OPENWEATHER_API_KEY" in st.secrets else None)
+# Cấu hình SMTP gửi mail (lấy từ secrets)
+SMTP_SERVER = st.secrets.get("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(st.secrets.get("SMTP_PORT", 587))
+SENDER_EMAIL = st.secrets.get("SENDER_EMAIL", "")
+SENDER_PASSWORD = st.secrets.get("SENDER_PASSWORD", "")
 
 st.set_page_config(
     page_title="WeatherAI Pro - Trợ lý Khí tượng AI",
@@ -40,7 +32,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Kiểm tra trạng thái Đăng nhập Google (Đã sửa từ st.experimental_user -> st.user)
+# Kiểm tra Đăng nhập Google
 if not st.user.is_logged_in:
     st.markdown("""
         <div style="text-align: center; padding: 60px 20px;">
@@ -49,19 +41,19 @@ if not st.user.is_logged_in:
             </div>
             <h1 style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 40px; font-weight: 800; color: #F8FAFC; margin-bottom: 12px;">WeatherAI Pro</h1>
             <p style="font-size: 16px; color: #94A3B8; max-width: 520px; margin: 0 auto 32px auto; line-height: 1.6;">
-                Hệ thống phân tích khí tượng AI đa tầng, dự báo thời tiết theo thời gian thực và theo dõi diễn biến dông bão toàn cầu.
+                Hệ thống phân tích khí tượng AI đa tầng, dự báo thời tiết theo thời gian thực và tự động lưu trữ nhật ký qua Email cá nhân.
             </p>
         </div>
     """, unsafe_allow_html=True)
     
     col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
     with col_l2:
-        st.info("🔒 Vui lòng đăng nhập bằng tài khoản Google để trải nghiệm ứng dụng và bảo mật lịch sử trò chuyện.")
+        st.info("📧 Vui lòng đăng nhập Google để nhận bản lưu lịch sử trò chuyện trực tiếp qua Email của bạn.")
         if st.button("🔑 Đăng nhập / Đăng ký bằng Google", use_container_width=True, type="primary"):
             st.login("google")
     st.stop()
 
-# Đã đăng nhập thành công (Lấy thông tin từ st.user)
+# Thông tin tài khoản Google
 user_email = st.user.email
 user_name = st.user.name
 
@@ -77,62 +69,66 @@ client = OpenAI(
 )
 MODEL = "gpt-4o"
 
-# Key LocalStorage phân tách riêng theo Email người dùng
-USER_STORAGE_KEY = f"weatherai_pro_chat_{user_email.replace('@', '_at_').replace('.', '_')}"
-
-# ==========================================
-# 2. LƯU TRỰC TIẾP TRÊN WEB LOCALSTORAGE
-# ==========================================
+# Khởi tạo bộ nhớ tạm cho phiên làm việc
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-if "pending_new_chat" not in st.session_state:
-    st.session_state.pending_new_chat = None
+# ==========================================
+# 2. HÀM GỬI NHẬT KÝ CHAT QUA EMAIL
+# ==========================================
+def send_chat_history_email(recipient_email, recipient_name, history):
+    if not SENDER_EMAIL or not SENDER_PASSWORD:
+        return False, "Chưa cấu hình thông tin SENDER_EMAIL / SENDER_PASSWORD trong Secrets."
 
-local_storage_js = f"""
-<script>
-    const STORAGE_KEY = '{USER_STORAGE_KEY}';
+    if not history:
+        return False, "Không có dữ liệu lịch sử để gửi."
 
-    function syncFromWebStorage() {{
-        const storedData = localStorage.getItem(STORAGE_KEY);
-        if (storedData) {{
-            window.parent.postMessage({{
-                type: 'streamlit:setComponentValue',
-                value: storedData
-            }}, '*');
-        }} else {{
-            window.parent.postMessage({{
-                type: 'streamlit:setComponentValue',
-                value: '[]'
-            }}, '*');
-        }}
-    }}
-    setTimeout(syncFromWebStorage, 300);
-</script>
-"""
-
-web_storage_data = components.html(local_storage_js, height=0)
-
-if web_storage_data and isinstance(web_storage_data, str) and not st.session_state.chat_history:
     try:
-        loaded_history = json.loads(web_storage_data)
-        if isinstance(loaded_history, list):
-            st.session_state.chat_history = loaded_history
-    except Exception:
-        pass
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"⚡ [WeatherAI Pro] Nhật ký trò chuyện khí tượng - {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+        msg["From"] = f"WeatherAI Pro <{SENDER_EMAIL}>"
+        msg["To"] = recipient_email
 
-if st.session_state.pending_new_chat:
-    st.session_state.chat_history.append(st.session_state.pending_new_chat)
-    st.session_state.pending_new_chat = None
-    
-    updated_json = json.dumps(st.session_state.chat_history, ensure_ascii=False)
-    save_js = f"""
-    <script>
-        localStorage.setItem('{USER_STORAGE_KEY}', {json.dumps(updated_json)});
-    </script>
-    """
-    components.html(save_js, height=0)
+        body_html = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 20px;">
+            <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0;">
+                <h2 style="color: #0284C7; margin-top: 0;">⚡ WeatherAI Pro Log</h2>
+                <p>Xin chào <b>{recipient_name}</b> ({recipient_email}),</p>
+                <p>Dưới đây là nhật ký chi tiết các câu hỏi và phân tích khí tượng AI của bạn:</p>
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+        """
 
+        for item in history:
+            q = item.get("question", "")
+            ans = item.get("reply") or item.get("report") or ""
+            body_html += f"""
+                <div style="margin-bottom: 18px; padding: 12px; background: #f8fafc; border-left: 4px solid #00C2FF; border-radius: 6px;">
+                    <p style="margin: 0 0 8px 0; font-weight: bold; color: #0F172A;">🗣️ Bạn: {q}</p>
+                    <p style="margin: 0; color: #334155; line-height: 1.5;">🤖 WeatherAI: {ans}</p>
+                </div>
+            """
+
+        body_html += """
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+                <p style="font-size: 12px; color: #94A3B8; text-align: center;">Thư này được gửi tự động từ ứng dụng WeatherAI Pro.</p>
+            </div>
+        </body>
+        </html>
+        """
+
+        msg.attach(MIMEText(body_html, "html"))
+
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(SENDER_EMAIL, SENDER_PASSWORD)
+        server.sendmail(SENDER_EMAIL, recipient_email, msg.as_string())
+        server.quit()
+        return True, "Đã gửi thành công!"
+    except Exception as e:
+        return False, str(e)
+
+# Lấy GPS an toàn
 try:
     from streamlit_js_eval import get_geolocation
     user_gps = get_geolocation()
@@ -158,7 +154,7 @@ with st.sidebar:
     st.markdown(f"""
         <div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); padding: 12px; border-radius: 12px; margin-bottom: 16px;">
             <div style="font-size: 13px; font-weight: 700; color: #F8FAFC !important;">👤 {user_name}</div>
-            <div style="font-size: 11px; color: #94A3B8 !important; overflow: hidden; text-overflow: ellipsis;">📧 {user_email}</div>
+            <div style="font-size: 11px; color: #38BDF8 !important; overflow: hidden; text-overflow: ellipsis;">📧 {user_email}</div>
         </div>
     """, unsafe_allow_html=True)
     
@@ -187,23 +183,25 @@ with st.sidebar:
     )
     
     st.write("---")
-    st.markdown("<h4 style='color: #F8FAFC !important;'>🛡️ Quản lý Bộ nhớ Web</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #F8FAFC !important;'>📧 Lưu & Gửi qua Email</h4>", unsafe_allow_html=True)
 
-    if st.button("🗑️ Xóa toàn bộ lịch sử trên Web", use_container_width=True):
+    if st.button("📩 Gửi toàn bộ chat về Email", use_container_width=True):
+        with st.spinner("Đang gửi nhật ký chat đến email của bạn..."):
+            ok, msg_res = send_chat_history_email(user_email, user_name, st.session_state.chat_history)
+            if ok:
+                st.success(f"✅ Đã gửi nhật ký về {user_email}")
+            else:
+                st.error(f"❌ Không thể gửi mail: {msg_res}")
+
+    if st.button("🧹 Xóa hội thoại hiện tại", use_container_width=True):
         st.session_state.chat_history = []
-        clear_storage_js = f"""
-        <script>
-            localStorage.removeItem('{USER_STORAGE_KEY}');
-        </script>
-        """
-        components.html(clear_storage_js, height=0)
         st.rerun()
 
     st.write("---")
     st.markdown("""
         <div style="background: rgba(18, 27, 47, 0.7); backdrop-filter: blur(12px); padding: 14px; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.2);">
-            <div style="font-size: 10px; color: #94A3B8 !important; font-weight: 700; text-transform: uppercase;">TRẠNG THÁI BẢO MẬT</div>
-            <div style="font-size: 12px; color: #38BDF8 !important; font-weight: 700; margin-top: 4px;">🔒 Lưu riêng trên Web theo Account</div>
+            <div style="font-size: 10px; color: #94A3B8 !important; font-weight: 700; text-transform: uppercase;">CHẾ ĐỘ BẢO MẬT</div>
+            <div style="font-size: 12px; color: #10B981 !important; font-weight: 700; margin-top: 4px;">🚫 Không lưu trên Web / LocalStorage</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -854,6 +852,8 @@ else:
                 }
 
         if new_entry:
-            st.session_state.pending_new_chat = new_entry
+            st.session_state.chat_history.append(new_entry)
+            # Tự động gửi email thông báo lượt hội thoại mới
+            send_chat_history_email(user_email, user_name, [new_entry])
 
         st.rerun()
