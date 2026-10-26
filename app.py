@@ -1,13 +1,11 @@
 import os
 import json
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone, timedelta
 import requests
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -19,12 +17,6 @@ load_dotenv()
 AI_KEY = os.getenv("APIGIARE_API_KEY") or (st.secrets.get("APIGIARE_API_KEY") if "APIGIARE_API_KEY" in st.secrets else None)
 WEATHER_KEY = os.getenv("OPENWEATHER_API_KEY") or (st.secrets.get("OPENWEATHER_API_KEY") if "OPENWEATHER_API_KEY" in st.secrets else None)
 
-# Cấu hình SMTP gửi mail (lấy từ secrets)
-SMTP_SERVER = st.secrets.get("SMTP_SERVER", "smtp.gmail.com")
-SMTP_PORT = int(st.secrets.get("SMTP_PORT", 587))
-SENDER_EMAIL = st.secrets.get("SENDER_EMAIL", "")
-SENDER_PASSWORD = st.secrets.get("SENDER_PASSWORD", "")
-
 st.set_page_config(
     page_title="WeatherAI Pro - Trợ lý Khí tượng AI",
     page_icon="⚡",
@@ -32,7 +24,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Kiểm tra Đăng nhập Google
+# Kiểm tra trạng thái Đăng nhập Google
 if not st.user.is_logged_in:
     st.markdown("""
         <div style="text-align: center; padding: 60px 20px;">
@@ -41,19 +33,19 @@ if not st.user.is_logged_in:
             </div>
             <h1 style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 40px; font-weight: 800; color: #F8FAFC; margin-bottom: 12px;">WeatherAI Pro</h1>
             <p style="font-size: 16px; color: #94A3B8; max-width: 520px; margin: 0 auto 32px auto; line-height: 1.6;">
-                Hệ thống phân tích khí tượng AI đa tầng, dự báo thời tiết theo thời gian thực và tự động lưu trữ nhật ký qua Email cá nhân.
+                Hệ thống phân tích khí tượng AI đa tầng, dự báo thời tiết theo thời gian thực và quản lý cuộc trò chuyện thông minh.
             </p>
         </div>
     """, unsafe_allow_html=True)
     
     col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
     with col_l2:
-        st.info("📧 Vui lòng đăng nhập Google để nhận bản lưu lịch sử trò chuyện trực tiếp qua Email của bạn.")
+        st.info("🔒 Vui lòng đăng nhập bằng tài khoản Google để trải nghiệm và lưu trữ lịch sử các đoạn chat.")
         if st.button("🔑 Đăng nhập / Đăng ký bằng Google", use_container_width=True, type="primary"):
             st.login("google")
     st.stop()
 
-# Thông tin tài khoản Google
+# Đã đăng nhập thành công
 user_email = st.user.email
 user_name = st.user.name
 
@@ -69,64 +61,80 @@ client = OpenAI(
 )
 MODEL = "gpt-4o"
 
-# Khởi tạo bộ nhớ tạm cho phiên làm việc
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+# Key LocalStorage quản lý danh sách đoạn chat theo Email
+USER_STORAGE_KEY = f"weatherai_pro_threads_{user_email.replace('@', '_at_').replace('.', '_')}"
 
 # ==========================================
-# 2. HÀM GỬI NHẬT KÝ CHAT QUA EMAIL
+# 2. ĐỒNG BỘ LOCALSTORAGE CÁC PHIÊN TRÒ CHUYỆN (SESSIONS)
 # ==========================================
-def send_chat_history_email(recipient_email, recipient_name, history):
-    if not SENDER_EMAIL or not SENDER_PASSWORD:
-        return False, "Chưa cấu hình thông tin SENDER_EMAIL / SENDER_PASSWORD trong Secrets."
+# Cấu trúc threads_store: { "session_id_1": {"title": "Thời tiết TP.HCM", "created_at": "...", "chats": [...]}, ... }
+if "threads_store" not in st.session_state:
+    st.session_state.threads_store = {}
 
-    if not history:
-        return False, "Không có dữ liệu lịch sử để gửi."
+if "active_thread_id" not in st.session_state:
+    st.session_state.active_thread_id = None
 
+# Đọc dữ liệu các đoạn chat từ Web LocalStorage
+local_storage_js = f"""
+<script>
+    const STORAGE_KEY = '{USER_STORAGE_KEY}';
+
+    function syncFromWebStorage() {{
+        const storedData = localStorage.getItem(STORAGE_KEY);
+        if (storedData) {{
+            window.parent.postMessage({{
+                type: 'streamlit:setComponentValue',
+                value: storedData
+            }}, '*');
+        }} else {{
+            window.parent.postMessage({{
+                type: 'streamlit:setComponentValue',
+                value: '{{}}'
+            }}, '*');
+        }}
+    }}
+    setTimeout(syncFromWebStorage, 300);
+</script>
+"""
+
+web_storage_data = components.html(local_storage_js, height=0)
+
+if web_storage_data and isinstance(web_storage_data, str) and not st.session_state.threads_store:
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"⚡ [WeatherAI Pro] Nhật ký trò chuyện khí tượng - {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-        msg["From"] = f"WeatherAI Pro <{SENDER_EMAIL}>"
-        msg["To"] = recipient_email
+        loaded_threads = json.loads(web_storage_data)
+        if isinstance(loaded_threads, dict):
+            st.session_state.threads_store = loaded_threads
+            if loaded_threads and not st.session_state.active_thread_id:
+                # Mặc định chọn phiên trò chuyện mới nhất
+                st.session_state.active_thread_id = list(loaded_threads.keys())[-1]
+    except Exception:
+        pass
 
-        body_html = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 20px;">
-            <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0;">
-                <h2 style="color: #0284C7; margin-top: 0;">⚡ WeatherAI Pro Log</h2>
-                <p>Xin chào <b>{recipient_name}</b> ({recipient_email}),</p>
-                <p>Dưới đây là nhật ký chi tiết các câu hỏi và phân tích khí tượng AI của bạn:</p>
-                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
-        """
+# Tạo một đoạn chat mới nếu chưa có phiên nào
+def create_new_thread():
+    new_id = f"chat_{int(datetime.now().timestamp() * 1000)}"
+    st.session_state.threads_store[new_id] = {
+        "title": "Cuộc trò chuyện mới",
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "chats": []
+    }
+    st.session_state.active_thread_id = new_id
+    save_threads_to_web()
 
-        for item in history:
-            q = item.get("question", "")
-            ans = item.get("reply") or item.get("report") or ""
-            body_html += f"""
-                <div style="margin-bottom: 18px; padding: 12px; background: #f8fafc; border-left: 4px solid #00C2FF; border-radius: 6px;">
-                    <p style="margin: 0 0 8px 0; font-weight: bold; color: #0F172A;">🗣️ Bạn: {q}</p>
-                    <p style="margin: 0; color: #334155; line-height: 1.5;">🤖 WeatherAI: {ans}</p>
-                </div>
-            """
+def save_threads_to_web():
+    updated_json = json.dumps(st.session_state.threads_store, ensure_ascii=False)
+    save_js = f"""
+    <script>
+        localStorage.setItem('{USER_STORAGE_KEY}', {json.dumps(updated_json)});
+    </script>
+    """
+    components.html(save_js, height=0)
 
-        body_html += """
-                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
-                <p style="font-size: 12px; color: #94A3B8; text-align: center;">Thư này được gửi tự động từ ứng dụng WeatherAI Pro.</p>
-            </div>
-        </body>
-        </html>
-        """
+if not st.session_state.threads_store:
+    create_new_thread()
 
-        msg.attach(MIMEText(body_html, "html"))
-
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-        server.starttls()
-        server.login(SENDER_EMAIL, SENDER_PASSWORD)
-        server.sendmail(SENDER_EMAIL, recipient_email, msg.as_string())
-        server.quit()
-        return True, "Đã gửi thành công!"
-    except Exception as e:
-        return False, str(e)
+if not st.session_state.active_thread_id or st.session_state.active_thread_id not in st.session_state.threads_store:
+    st.session_state.active_thread_id = list(st.session_state.threads_store.keys())[-1]
 
 # Lấy GPS an toàn
 try:
@@ -136,46 +144,52 @@ except Exception:
     user_gps = None
 
 # ==========================================
-# 3. SIDEBAR NAVIGATION
+# 3. SIDEBAR NAVIGATION (GIỐNG GEMINI)
 # ==========================================
 with st.sidebar:
     st.markdown("""
-        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-            <div style="width: 40px; height: 40px; border-radius: 50%; background: #00C2FF; display: flex; align-items: center; justify-content: center; color: #0A1327; box-shadow: 0 0 20px rgba(0,194,255,0.4); font-size: 20px;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+            <div style="width: 36px; height: 36px; border-radius: 50%; background: #00C2FF; display: flex; align-items: center; justify-content: center; color: #0A1327; box-shadow: 0 0 15px rgba(0,194,255,0.4); font-size: 18px;">
                 ⚡
             </div>
             <div>
-                <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px; font-weight: 800; color: #F8FAFC !important;">WeatherAI Pro</div>
-                <div style="font-size: 11px; color: #38BDF8 !important; font-weight: 600; text-transform: uppercase;">Trợ lý Khí tượng AI</div>
+                <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 17px; font-weight: 800; color: #F8FAFC !important;">WeatherAI Pro</div>
             </div>
         </div>
     """, unsafe_allow_html=True)
-    
-    st.markdown(f"""
-        <div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); padding: 12px; border-radius: 12px; margin-bottom: 16px;">
-            <div style="font-size: 13px; font-weight: 700; color: #F8FAFC !important;">👤 {user_name}</div>
-            <div style="font-size: 11px; color: #38BDF8 !important; overflow: hidden; text-overflow: ellipsis;">📧 {user_email}</div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    if st.button("🚪 Đăng xuất Google", use_container_width=True):
-        st.logout()
 
-    st.write("---")
-
-    theme_choice = st.radio(
-        "🎨 Chế độ giao diện:",
-        ["☀️ Light Mode", "🌙 Dark Glass Mode"],
-        index=1
-    )
-    is_dark = "Dark" in theme_choice
+    # Nút Tạo cuộc trò chuyện mới
+    if st.button("➕ Cuộc trò chuyện mới", use_container_width=True, type="primary"):
+        create_new_thread()
+        st.rerun()
 
     st.write("---")
     
+    # DANH SÁCH CÁC ĐOẠN CHAT (GIỐNG GEMINI SIDEBAR)
+    st.markdown("<div style='font-size: 12px; font-weight: 700; color: #94A3B8; text-transform: uppercase; margin-bottom: 8px;'>Tất cả cuộc trò chuyện</div>", unsafe_allow_html=True)
+    
+    # Duyệt danh sách các thread đảo ngược (mới nhất lên trên)
+    sorted_thread_ids = list(st.session_state.threads_store.keys())[::-1]
+    
+    for tid in sorted_thread_ids:
+        thread_info = st.session_state.threads_store[tid]
+        title = thread_info.get("title", "Cuộc trò chuyện mới")
+        is_selected = (tid == st.session_state.active_thread_id)
+        
+        # Rút ngắn tiêu đề nếu quá dài
+        display_title = (title[:22] + '...') if len(title) > 22 else title
+        
+        btn_label = f"💬 {display_title}" if not is_selected else f"🔹 {display_title}"
+        if st.button(btn_label, key=f"btn_thread_{tid}", use_container_width=True):
+            st.session_state.active_thread_id = tid
+            st.rerun()
+
+    st.write("---")
+
     active_menu = st.radio(
-        "📌 Danh mục chức năng:",
+        "📌 Chức năng chính:",
         [
-            "📊 Dự báo, Phân tích & Trò chuyện",
+            "📊 Dự báo & Trò chuyện",
             "🛰️ Bản đồ Radar & Vệ tinh",
             "⚠️ Cảnh báo dông bão"
         ],
@@ -183,304 +197,159 @@ with st.sidebar:
     )
     
     st.write("---")
-    st.markdown("<h4 style='color: #F8FAFC !important;'>📧 Lưu & Gửi qua Email</h4>", unsafe_allow_html=True)
-
-    if st.button("📩 Gửi toàn bộ chat về Email", use_container_width=True):
-        with st.spinner("Đang gửi nhật ký chat đến email của bạn..."):
-            ok, msg_res = send_chat_history_email(user_email, user_name, st.session_state.chat_history)
-            if ok:
-                st.success(f"✅ Đã gửi nhật ký về {user_email}")
-            else:
-                st.error(f"❌ Không thể gửi mail: {msg_res}")
-
-    if st.button("🧹 Xóa hội thoại hiện tại", use_container_width=True):
-        st.session_state.chat_history = []
-        st.rerun()
-
-    st.write("---")
-    st.markdown("""
-        <div style="background: rgba(18, 27, 47, 0.7); backdrop-filter: blur(12px); padding: 14px; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.2);">
-            <div style="font-size: 10px; color: #94A3B8 !important; font-weight: 700; text-transform: uppercase;">CHẾ ĐỘ BẢO MẬT</div>
-            <div style="font-size: 12px; color: #10B981 !important; font-weight: 700; margin-top: 4px;">🚫 Không lưu trên Web / LocalStorage</div>
+    
+    # Thông tin tài khoản & Nút xóa
+    st.markdown(f"""
+        <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); padding: 10px; border-radius: 10px; margin-bottom: 10px;">
+            <div style="font-size: 12px; font-weight: 700; color: #F8FAFC !important;">👤 {user_name}</div>
+            <div style="font-size: 10px; color: #94A3B8 !important; overflow: hidden; text-overflow: ellipsis;">{user_email}</div>
         </div>
     """, unsafe_allow_html=True)
+
+    col_s1, col_s2 = st.columns(2)
+    with col_s1:
+        if st.button("🗑️ Xóa đoạn chat này", use_container_width=True):
+            if st.session_state.active_thread_id in st.session_state.threads_store:
+                del st.session_state.threads_store[st.session_state.active_thread_id]
+                save_threads_to_web()
+                if st.session_state.threads_store:
+                    st.session_state.active_thread_id = list(st.session_state.threads_store.keys())[-1]
+                else:
+                    create_new_thread()
+                st.rerun()
+    with col_s2:
+        if st.button("🚪 Đăng xuất", use_container_width=True):
+            st.logout()
 
 # ==========================================
 # 4. DYNAMIC CSS STYLES (DARK GLASS)
 # ==========================================
-if is_dark:
-    st.markdown("""
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
 
-        .block-container {
-            padding-top: 2rem !important;
-            padding-bottom: 2rem !important;
-        }
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+    }
 
-        html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-            background-color: #0A1327 !important;
-            color: #F8FAFC !important;
-            font-family: 'Inter', sans-serif;
-        }
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+        background-color: #0A1327 !important;
+        color: #F8FAFC !important;
+        font-family: 'Inter', sans-serif;
+    }
 
-        #MainMenu, footer {visibility: hidden;}
+    #MainMenu, footer {visibility: hidden;}
 
-        [data-testid="stSidebar"] {
-            background-color: rgba(5, 14, 33, 0.85) !important;
-            backdrop-filter: blur(20px) !important;
-            border-right: 1px solid rgba(56, 189, 248, 0.15) !important;
-        }
+    [data-testid="stSidebar"] {
+        background-color: rgba(5, 14, 33, 0.9) !important;
+        backdrop-filter: blur(20px) !important;
+        border-right: 1px solid rgba(56, 189, 248, 0.15) !important;
+    }
 
-        [data-testid="stSidebar"] *, 
-        [data-testid="stSidebar"] label, 
-        [data-testid="stSidebar"] p, 
-        [data-testid="stSidebar"] span, 
-        [data-testid="stSidebar"] div {
-            color: #F8FAFC !important;
-        }
+    [data-testid="stSidebar"] *, 
+    [data-testid="stSidebar"] label, 
+    [data-testid="stSidebar"] p, 
+    [data-testid="stSidebar"] span, 
+    [data-testid="stSidebar"] div {
+        color: #F8FAFC !important;
+    }
 
-        [data-testid="stSidebar"] [data-aria-selected="true"] p {
-            color: #38BDF8 !important;
-            font-weight: 700 !important;
-        }
+    .stTextInput > div > div > input {
+        background-color: rgba(18, 27, 47, 0.85) !important;
+        border: 1px solid rgba(56, 189, 248, 0.3) !important;
+        color: #FFFFFF !important;
+        border-radius: 9999px !important;
+        padding: 12px 24px !important;
+        font-size: 14px !important;
+    }
 
-        .stTextInput > div > div > input {
-            background-color: rgba(18, 27, 47, 0.85) !important;
-            border: 1px solid rgba(56, 189, 248, 0.3) !important;
-            color: #FFFFFF !important;
-            border-radius: 9999px !important;
-            padding: 12px 24px !important;
-            font-size: 14px !important;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.4) !important;
-        }
+    .stTextInput > div > div > input::placeholder {
+        color: #94A3B8 !important;
+    }
 
-        .stTextInput > div > div > input::placeholder {
-            color: #94A3B8 !important;
-            opacity: 1 !important;
-        }
+    .stButton > button, [data-testid="stFormSubmitButton"] > button {
+        background: linear-gradient(135deg, #00C2FF 0%, #0284C7 100%) !important;
+        color: #0A1327 !important;
+        font-weight: 700 !important;
+        border: none !important;
+        border-radius: 9999px !important;
+        padding: 8px 20px !important;
+    }
 
-        .stTextInput > div > div > input:focus {
-            border-color: #00C2FF !important;
-            box-shadow: 0 0 16px rgba(0, 194, 255, 0.35) !important;
-        }
+    .hero-title {
+        text-align: center;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 28px;
+        font-weight: 800;
+        color: #F8FAFC;
+        margin-bottom: 20px;
+    }
 
-        .stButton > button, [data-testid="stFormSubmitButton"] > button {
-            background: linear-gradient(135deg, #00C2FF 0%, #0284C7 100%) !important;
-            color: #0A1327 !important;
-            font-weight: 700 !important;
-            border: none !important;
-            border-radius: 9999px !important;
-            padding: 10px 24px !important;
-            box-shadow: 0 8px 20px rgba(0, 194, 255, 0.3) !important;
-        }
+    .telemetry-card {
+        background: rgba(24, 35, 60, 0.75);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(56, 189, 248, 0.18);
+        border-radius: 16px;
+        padding: 16px;
+    }
+    .telemetry-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: #94A3B8 !important;
+        text-transform: uppercase;
+    }
+    .telemetry-value {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 24px;
+        font-weight: 700;
+        color: #F8FAFC !important;
+        margin: 4px 0;
+    }
+    .telemetry-sub {
+        font-size: 12px;
+        color: #38BDF8 !important;
+    }
 
-        .hero-title {
-            text-align: center;
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            font-size: 32px;
-            font-weight: 800;
-            color: #F8FAFC;
-            margin-top: 10px;
-            margin-bottom: 20px;
-            letter-spacing: -0.02em;
-        }
+    .user-msg-card {
+        background: rgba(56, 189, 248, 0.15);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        border-radius: 16px;
+        padding: 14px 18px;
+        margin-top: 15px;
+        color: #F8FAFC !important;
+    }
 
-        .telemetry-card {
-            background: rgba(24, 35, 60, 0.75);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(56, 189, 248, 0.18);
-            border-radius: 16px;
-            padding: 18px;
-            box-shadow: 0 12px 32px rgba(11, 19, 38, 0.5);
-        }
-        .telemetry-label {
-            font-size: 11px;
-            font-weight: 700;
-            color: #94A3B8 !important;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .telemetry-value {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            font-size: 26px;
-            font-weight: 700;
-            color: #F8FAFC !important;
-            margin: 6px 0;
-        }
-        .telemetry-sub {
-            font-size: 12px;
-            color: #38BDF8 !important;
-        }
-
-        .user-msg-card {
-            background: rgba(56, 189, 248, 0.15);
-            border: 1px solid rgba(56, 189, 248, 0.3);
-            border-radius: 16px;
-            padding: 16px 20px;
-            margin-top: 15px;
-            color: #F8FAFC !important;
-            backdrop-filter: blur(12px);
-        }
-
-        .ai-card {
-            background: rgba(18, 27, 47, 0.85);
-            border: 1px solid rgba(0, 194, 255, 0.35);
-            border-left: 4px solid #00C2FF;
-            border-radius: 16px;
-            padding: 20px;
-            margin-top: 10px;
-            margin-bottom: 20px;
-            line-height: 1.6;
-            color: #F8FAFC !important;
-            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(16px);
-        }
-        
-        .alert-box {
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            border-left: 4px solid #EF4444;
-            border-radius: 16px;
-            padding: 18px;
-            margin: 15px 0;
-            color: #F8FAFC !important;
-        }
-        .safe-box {
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid rgba(16, 185, 129, 0.4);
-            border-left: 4px solid #10B981;
-            border-radius: 16px;
-            padding: 18px;
-            margin: 15px 0;
-            color: #F8FAFC !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap');
-
-        .block-container {
-            padding-top: 2rem !important;
-            padding-bottom: 2rem !important;
-        }
-
-        html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-            background-color: #FFFFFF !important;
-            color: #0D0D0D !important;
-            font-family: 'Inter', sans-serif;
-        }
-
-        #MainMenu, footer {visibility: hidden;}
-
-        [data-testid="stSidebar"] {
-            background-color: #F8FAFC !important;
-            border-right: 1px solid #E2E8F0 !important;
-        }
-
-        [data-testid="stSidebar"] *, 
-        [data-testid="stSidebar"] label, 
-        [data-testid="stSidebar"] p, 
-        [data-testid="stSidebar"] span {
-            color: #0F172A !important;
-        }
-
-        .hero-title {
-            text-align: center;
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            font-size: 32px;
-            font-weight: 700;
-            color: #0D0D0D;
-            margin-top: 10px;
-            margin-bottom: 20px;
-        }
-
-        .stTextInput > div > div > input {
-            background-color: #FFFFFF !important;
-            border: 1px solid #CBD5E1 !important;
-            color: #0D0D0D !important;
-            border-radius: 9999px !important;
-            padding: 12px 20px !important;
-            font-size: 14px !important;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
-        }
-
-        .stButton > button, [data-testid="stFormSubmitButton"] > button {
-            background: #000000 !important;
-            color: #FFFFFF !important;
-            font-weight: 600 !important;
-            border: none !important;
-            border-radius: 9999px !important;
-            padding: 10px 20px !important;
-        }
-
-        .telemetry-card {
-            background: #F8FAFC;
-            border: 1px solid #E2E8F0;
-            border-radius: 16px;
-            padding: 18px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-        }
-        .telemetry-label {
-            font-size: 11px;
-            font-weight: 700;
-            color: #64748B !important;
-            text-transform: uppercase;
-        }
-        .telemetry-value {
-            font-size: 26px;
-            font-weight: 700;
-            color: #0F172A !important;
-            margin: 4px 0;
-        }
-        .telemetry-sub {
-            font-size: 12px;
-            color: #0284C7 !important;
-        }
-
-        .user-msg-card {
-            background: #F0FDF4;
-            border: 1px solid #DCFCE7;
-            border-radius: 16px;
-            padding: 16px;
-            margin-top: 15px;
-            color: #166534 !important;
-        }
-
-        .ai-card {
-            background: #FFFFFF;
-            border: 1px solid #E2E8F0;
-            border-radius: 16px;
-            padding: 20px;
-            margin-top: 10px;
-            margin-bottom: 20px;
-            line-height: 1.6;
-            color: #0F172A !important;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
-        }
-        
-        .alert-box {
-            background: #FEF2F2;
-            border: 1px solid #FCA5A5;
-            border-left: 4px solid #EF4444;
-            border-radius: 16px;
-            padding: 18px;
-            margin: 15px 0;
-            color: #991B1B !important;
-        }
-        .safe-box {
-            background: #ECFDF5;
-            border: 1px solid #6EE7B7;
-            border-left: 4px solid #10B981;
-            border-radius: 16px;
-            padding: 18px;
-            margin: 15px 0;
-            color: #065F46 !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    .ai-card {
+        background: rgba(18, 27, 47, 0.85);
+        border: 1px solid rgba(0, 194, 255, 0.35);
+        border-left: 4px solid #00C2FF;
+        border-radius: 16px;
+        padding: 18px;
+        margin-top: 10px;
+        margin-bottom: 20px;
+        line-height: 1.6;
+        color: #F8FAFC !important;
+    }
+    
+    .alert-box {
+        background: rgba(239, 68, 68, 0.2);
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        border-left: 4px solid #EF4444;
+        border-radius: 16px;
+        padding: 18px;
+        color: #F8FAFC !important;
+    }
+    .safe-box {
+        background: rgba(16, 185, 129, 0.15);
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        border-left: 4px solid #10B981;
+        border-radius: 16px;
+        padding: 18px;
+        color: #F8FAFC !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # ==========================================
 # 5. HÀM XỬ LÝ DỮ LIỆU & AI
@@ -488,16 +357,11 @@ else:
 def parse_user_intent(user_question):
     prompt = f"""
 Phân tích câu hỏi người dùng và trả về định dạng JSON/Text ngắn gọn:
-1. Ý định (is_weather): Trả về 'STORM' nếu hỏi về siêu bão, bão, áp thấp (ví dụ: 'bão CHAMPI'). Trả về 'WEATHER' nếu người dùng hỏi tra cứu thời tiết địa phương/lượng mưa/nhiệt độ. Trả về 'CHAT' nếu chỉ chào hỏi, tán gẫu, hỏi đáp chung không cần tra cứu thời tiết.
-2. Tên địa điểm (location): Tên Tỉnh/Thành/Huyện/Bão. Trả về 'USE_GPS' nếu người dùng không nhắc đến tên địa danh cụ thể.
-3. Khoảng thời gian (hours): Số giờ cần xem (24, 48, 72, 120). Mặc định là 120 nếu không rõ.
+1. Ý định (is_weather): Trả về 'STORM' nếu hỏi về siêu bão, bão, áp thấp. Trả về 'WEATHER' nếu người dùng hỏi tra cứu thời tiết địa phương. Trả về 'CHAT' nếu chỉ chào hỏi, tán gẫu.
+2. Tên địa điểm (location): Tên Tỉnh/Thành/Huyện/Bão. Trả về 'USE_GPS' nếu không nhắc tới địa danh.
+3. Khoảng thời gian (hours): Số giờ cần xem (24, 48, 72, 120). Mặc định là 120.
 
 Chỉ trả về 1 dòng duy nhất theo định dạng: LOẠI|TÊN_ĐỊA_ĐIỂM|SỐ_GIỜ
-Ví dụ 1: STORM|Siêu bão CHAMPI|120
-Ví dụ 2: WEATHER|Quan Go Vap, Ho Chi Minh|24
-Ví dụ 3: WEATHER|USE_GPS|120
-Ví dụ 4: CHAT|NONE|0
-
 Câu hỏi: {user_question}
 """
     try:
@@ -518,14 +382,11 @@ Câu hỏi: {user_question}
 
 def fetch_weather_by_coords(lat, lon):
     display_name = None
-    
     try:
         geo_detail_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lon}&localityLanguage=vi"
         res_geo = requests.get(geo_detail_url, timeout=5).json()
-        
         locality = res_geo.get("locality", "")
         city = res_geo.get("city", "") or res_geo.get("principalSubdivision", "")
-        
         if locality and city:
             display_name = f"{locality}, {city}"
         elif locality:
@@ -534,13 +395,7 @@ def fetch_weather_by_coords(lat, lon):
         pass
 
     if not display_name:
-        try:
-            geo_url = f"http://api.openweathermap.org/geo/1.0/reverse?lat={lat}&lon={lon}&limit=1&appid={WEATHER_KEY}"
-            geo_res = requests.get(geo_url, timeout=5).json()
-            if isinstance(geo_res, list) and len(geo_res) > 0:
-                display_name = geo_res[0].get('local_names', {}).get('vi', geo_res[0].get('name', "Vị trí GPS của bạn"))
-        except Exception:
-            display_name = "Vị trí GPS của bạn"
+        display_name = "Vị trí GPS của bạn"
 
     forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={WEATHER_KEY}&units=metric&lang=vi"
     try:
@@ -568,145 +423,74 @@ def fetch_weather_by_coords(lat, lon):
 
 
 def fetch_weather_data(location_name):
-    def safe_get_geo(query):
-        url = f"http://api.openweathermap.org/geo/1.0/direct?q={query}&limit=1&appid={WEATHER_KEY}"
-        try:
-            r = requests.get(url, timeout=10)
-            if r.status_code == 200:
-                data = r.json()
-                if isinstance(data, list) and len(data) > 0:
-                    return data[0]
-        except Exception:
-            pass
-        return None
-
-    geo_data = safe_get_geo(f"{location_name},VN")
-    if not geo_data:
-        geo_data = safe_get_geo(location_name)
-    if not geo_data and "," in location_name:
-        last_part = location_name.split(",")[-1].strip()
-        geo_data = safe_get_geo(f"{last_part},VN")
-    if not geo_data:
-        geo_data = safe_get_geo("Ho Chi Minh,VN")
-
-    if not geo_data or not isinstance(geo_data, dict) or 'lat' not in geo_data or 'lon' not in geo_data:
-        return None, f"Không thể tra cứu tọa độ cho địa điểm: '{location_name}'"
-
-    lat, lon = geo_data['lat'], geo_data['lon']
-    return fetch_weather_by_coords(lat, lon)
+    url = f"http://api.openweathermap.org/geo/1.0/direct?q={location_name}&limit=1&appid={WEATHER_KEY}"
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            if isinstance(data, list) and len(data) > 0:
+                lat, lon = data[0]['lat'], data[0]['lon']
+                return fetch_weather_by_coords(lat, lon)
+    except Exception:
+        pass
+    return fetch_weather_by_coords(10.8231, 106.6297)
 
 
 def generate_general_chat(user_question):
-    system_prompt = """
-Bạn là Trợ lý AI Khí tượng chuyên sâu WeatherAI Pro.
-
-QUY TẮC ĐIỀU HƯỚNG BẮC CẦU:
-1. Nếu người dùng chào hỏi cơ bản: Trả lời lịch sự, ngắn gọn và giới thiệu bạn có thể giúp gì về thời tiết/dự báo/dông bão.
-2. Nếu người dùng hỏi câu KHÔNG LIÊN QUAN ĐẾN THỜI TIẾT:
-   - Trả lời ngắn gọn 1 câu mang tính lịch sự.
-   - Nhẹ nhàng khéo léo chuyển hướng (pivot) người dùng quay trở lại chủ đề Thời tiết & Khí tượng.
-   - Gợi ý 2-3 câu hỏi thời tiết mẫu (tra cứu thời tiết địa phương, xem bản đồ bão, hoặc cảnh báo mưa lớn).
-"""
+    system_prompt = "Bạn là Trợ lý AI Khí tượng WeatherAI Pro. Trả lời lịch sự, thân thiện và hướng người dùng quay lại các câu hỏi thời tiết nếu họ hỏi lạc đề."
     try:
         res = client.chat.completions.create(
             model=MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_question}
-            ],
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_question}],
             temperature=0.5
         )
         return res.choices[0].message.content.strip()
     except Exception as e:
-        return f"⚠️ Lỗi khởi tạo AI: {str(e)}"
+        return f"⚠️ Lỗi AI: {str(e)}"
 
 
 def generate_ai_report(user_question, location_name, df_weather, target_hours):
-    gio_viet_nam = timezone(timedelta(hours=7))
-    today_str = datetime.now(gio_viet_nam).strftime("%d/%m/%Y %H:%M:%S")
-
     weather_summary = df_weather.to_string(index=False) if df_weather is not None else ""
-
-    system_prompt = f"""
-Bạn là Trợ lý AI Khí tượng WeatherAI Intelligence Pro.
-Thời gian hiện tại: {today_str}.
-
-DỮ LIỆU KHÍ TƯỢNG {target_hours} GIỜ TỚI TẠI KHU VỰC THAM CHIẾU '{location_name}':
-{weather_summary}
-
-YÊU CẦU TRẢ LỜI:
-1. Phân tích và trả lời trực tiếp câu hỏi của người dùng: "{user_question}".
-2. KHÔNG ĐƯỢC TỪ CHỐI TRẢ LỜI.
-3. Nếu người dùng hỏi về CƠN BÃO / SIÊU BÃO:
-   - Phân tích vị trí, quy mô, sức gió và hướng di chuyển.
-   - Nhấn mạnh: "🌀 Bản đồ Radar & Vệ tinh theo dõi trực tiếp cơn bão đã được hiển thị ngay bên dưới để bạn dễ dàng theo dõi."
-   - Đưa ra cảnh báo thiên tai và khuyến nghị phòng tránh an toàn.
-"""
+    system_prompt = f"Bạn là WeatherAI Intelligence Pro. Phân tích thời tiết tại '{location_name}' cho {target_hours} giờ tới:\n{weather_summary}"
     try:
         res = client.chat.completions.create(
             model=MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_question}
-            ],
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_question}],
             temperature=0.3
         )
         return res.choices[0].message.content.strip()
     except Exception as e:
-        return f"⚠️ Không thể khởi tạo phân tích AI: {str(e)}"
-
+        return f"⚠️ Lỗi phân tích AI: {str(e)}"
 
 # ==========================================
-# 6. ĐIỀU HƯỚNG GIAO DIỆN THEO MENU
+# 6. ĐIỀU HƯỚNG MÀN HÌNH CHÍNH
 # ==========================================
 
-# TAB 1: 🛰️ BẢN ĐỒ RADAR TRỰC TIẾP
 if active_menu == "🛰️ Bản đồ Radar & Vệ tinh":
-    st.markdown('<div class="hero-title">🛰️ Bản đồ Radar & Vệ tinh Mây Mưa Trực Tuyến</div>', unsafe_allow_html=True)
-    
-    lat_map = 10.8231
-    lon_map = 106.6297
+    st.markdown('<div class="hero-title">🛰️ Bản đồ Radar Mây Mưa Trực Tuyến</div>', unsafe_allow_html=True)
+    lat_map, lon_map = 10.8231, 106.6297
     if user_gps and "coords" in user_gps:
         lat_map = user_gps["coords"]["latitude"]
         lon_map = user_gps["coords"]["longitude"]
-
     windy_url = f"https://embed.windy.com/embed2.html?lat={lat_map}&lon={lon_map}&detailLat={lat_map}&detailLon={lon_map}&width=100%25&height=550&zoom=8&level=surface&overlay=radar&product=radar&menu=&message=true&marker=true&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=m%2Fs&metricTemp=%C2%B0C&radarRange=-1"
     st.components.v1.iframe(windy_url, height=550, scrolling=False)
 
-# TAB 2: ⚠️ CẢNH BÁO DÔNG BÃO
 elif active_menu == "⚠️ Cảnh báo dông bão":
-    st.markdown('<div class="hero-title">⚠️ Hệ Thống Cảnh Báo Dông Bão & Thời Tiết Cực Đoan</div>', unsafe_allow_html=True)
-    
-    if user_gps and "coords" in user_gps:
-        data_alert, err = fetch_weather_by_coords(user_gps["coords"]["latitude"], user_gps["coords"]["longitude"])
-    else:
-        data_alert, err = fetch_weather_data("Ho Chi Minh")
-
+    st.markdown('<div class="hero-title">⚠️ Cảnh Báo Thời Tiết Cực Đoan</div>', unsafe_allow_html=True)
+    data_alert, err = fetch_weather_data("Ho Chi Minh")
     if data_alert:
-        df_a = pd.DataFrame(data_alert["records"])
-        max_rain = df_a["Mưa (mm)"].max()
-        thunder_times = df_a[df_a["Mô tả"].str.contains("dông|bão|sấm|mưa to|mưa rất to", case=False, na=False)]["Thời gian"].tolist()
-        curr_temp = df_a.iloc[0]["Nhiệt độ (°C)"]
+        st.markdown(f'<div class="safe-box">📍 **Khu vực {data_alert["name"]}**: Hiện không ghi nhận cảnh báo dông bão nguy hiểm trong 24h tới.</div>', unsafe_allow_html=True)
 
-        alerts = []
-        if max_rain >= 10.0:
-            alerts.append(f"🌧️ **Cảnh báo mưa lớn**: Lượng mưa đỉnh điểm đạt **{max_rain:.1f} mm/3h**. Nguy cơ gây ngập lụt ở khu vực trũng thấp.")
-        if thunder_times:
-            alerts.append(f"⚡ **Cảnh báo Dông Sấm**: Dữ liệu ghi nhận sấm dông nguy hiểm tại các khung giờ: `{', '.join(thunder_times[:4])}`.")
-        if curr_temp >= 37.0:
-            alerts.append("🔥 **Cảnh báo Nắng nóng cực đoan**: Nhiệt độ vượt ngưỡng 37°C. Cần chú ý bồi bổ nước và tránh ánh nắng trực tiếp.")
-
-        if alerts:
-            alert_html = "<br><br>".join(alerts)
-            st.markdown(f'<div class="alert-box"><h4>📍 Địa điểm: {data_alert["name"]}</h4><hr>{alert_html}</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="safe-box">📍 **Khu vực {data_alert["name"]}**: Hiện không ghi nhận cảnh báo dông bão hay mưa lớn cực đoan trong những ngày tới.</div>', unsafe_allow_html=True)
-
-# TAB 3: DỰ BÁO, PHÂN TÍCH & TRÒ CHUYỆN
 else:
-    st.markdown('<div class="hero-title">WeatherAI Pro Dashboard</div>', unsafe_allow_html=True)
+    # Lấy thread hiện tại đang chọn
+    active_tid = st.session_state.active_thread_id
+    current_thread = st.session_state.threads_store.get(active_tid, {"chats": [], "title": "Cuộc trò chuyện mới"})
+    current_chats = current_thread.get("chats", [])
 
-    for idx, chat in enumerate(st.session_state.chat_history):
+    st.markdown(f'<div class="hero-title">{current_thread.get("title", "WeatherAI Pro")}</div>', unsafe_allow_html=True)
+
+    # Hiển thị lịch sử chat của phiên hiện tại
+    for idx, chat in enumerate(current_chats):
         st.markdown(f'<div class="user-msg-card"><b>🗣️ Bạn:</b> {chat["question"]}</div>', unsafe_allow_html=True)
 
         if chat["type"] == "CHAT":
@@ -724,81 +508,34 @@ else:
             df_filtered = df_full.head(num_rows)
             loc_name = data["name"]
 
-            highlight_color = "#00C2FF" if is_dark else "#0284C7"
-            badge_bg = "rgba(0, 194, 255, 0.15)" if is_dark else "#F0F9FF"
-            badge_text = "#38BDF8" if is_dark else "#0369A1"
-
-            st.markdown(f"""
-                <div style="display: flex; align-items: center; gap: 10px; margin: 15px 0 10px 0;">
-                    <span style="font-size: 18px; font-weight: 700;">
-                        📍 Thời tiết tại <span style="color: {highlight_color};">{loc_name}</span>
-                    </span>
-                    <span style="background: {badge_bg}; color: {badge_text}; font-family: monospace; font-size: 11px; padding: 3px 10px; border-radius: 9999px;">
-                        🎯 {data['lat']:.3f}°N, {data['lon']:.3f}°E
-                    </span>
-                </div>
-            """, unsafe_allow_html=True)
-
-            c1, c2, c3, c4 = st.columns(4)
-            curr_temp = df_full.iloc[0]["Nhiệt độ (°C)"]
-            curr_feel = df_full.iloc[0]["Cảm giác (°C)"]
-            curr_hum = df_full.iloc[0]["Độ ẩm (%)"]
-            total_rain_24h = df_full.head(8)["Mưa (mm)"].sum()
-
-            with c1:
-                st.markdown('<div class="telemetry-card"><div class="telemetry-label">ĐỘ CHÍNH XÁC AI</div><div class="telemetry-value">96.8%</div><div class="telemetry-sub">RMS: 0.42°C</div></div>', unsafe_allow_html=True)
-            with c2:
-                st.markdown('<div class="telemetry-card"><div class="telemetry-label">TỐC ĐỘ SUY LUẬN</div><div class="telemetry-value">142 ms</div><div class="telemetry-sub">TPU Cloud Pipeline</div></div>', unsafe_allow_html=True)
-            with c3:
-                st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">NHIỆT ĐỘ THỰC TẾ</div><div class="telemetry-value">{curr_temp:.1f}°C</div><div class="telemetry-sub">Cảm giác {curr_feel:.1f}°C</div></div>', unsafe_allow_html=True)
-            with c4:
-                st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">LƯỢNG MƯA 24H & ĐỘ ẨM</div><div class="telemetry-value">{total_rain_24h:.1f} mm</div><div class="telemetry-sub">Độ ẩm {curr_hum}%</div></div>', unsafe_allow_html=True)
+            st.markdown(f"📍 **Thời tiết tại {loc_name}** ({data['lat']:.2f}°N, {data['lon']:.2f}°E)")
 
             fig = go.Figure()
-            line_col = "#00C2FF" if is_dark else "#0284C7"
-            bar_col = "rgba(56, 189, 248, 0.5)" if is_dark else "rgba(2, 132, 199, 0.3)"
-            bg_col = "rgba(10, 19, 39, 0.7)" if is_dark else "#FFFFFF"
-            grid_col = "rgba(255, 255, 255, 0.08)" if is_dark else "#E2E8F0"
-
-            fig.add_trace(go.Scatter(
-                x=df_filtered["Thời gian"], y=df_filtered["Nhiệt độ (°C)"],
-                mode="lines+markers", name="Nhiệt độ (°C)",
-                line=dict(color=line_col, width=3)
-            ))
-            fig.add_trace(go.Bar(
-                x=df_filtered["Thời gian"], y=df_filtered["Mưa (mm)"],
-                name="Lượng mưa (mm)", marker_color=bar_col,
-                yaxis="y2"
-            ))
+            fig.add_trace(go.Scatter(x=df_filtered["Thời gian"], y=df_filtered["Nhiệt độ (°C)"], mode="lines+markers", name="Nhiệt độ (°C)", line=dict(color="#00C2FF", width=3)))
+            fig.add_trace(go.Bar(x=df_filtered["Thời gian"], y=df_filtered["Mưa (mm)"], name="Lượng mưa (mm)", marker_color="rgba(56, 189, 248, 0.5)", yaxis="y2"))
             
             fig.update_layout(
-                template="plotly_dark" if is_dark else "plotly_white",
+                template="plotly_dark",
                 paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor=bg_col,
+                plot_bgcolor="rgba(10, 19, 39, 0.7)",
                 margin=dict(l=20, r=20, t=30, b=20),
-                height=320,
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                dragmode=False,
-                xaxis=dict(showgrid=True, gridcolor=grid_col, fixedrange=True),
-                yaxis=dict(title="Nhiệt độ (°C)", showgrid=True, gridcolor=grid_col, fixedrange=True),
+                height=300,
+                xaxis=dict(showgrid=True, fixedrange=True),
+                yaxis=dict(title="Nhiệt độ (°C)", fixedrange=True),
                 yaxis2=dict(title="Lượng mưa (mm)", overlaying="y", side="right", showgrid=False, fixedrange=True)
             )
             
             st.plotly_chart(fig, use_container_width=True, key=f"fig_{idx}", config={'displayModeBar': False})
             st.markdown(f'<div class="ai-card"><b>🤖 Phân tích WeatherAI:</b><br>{chat["report"]}</div>', unsafe_allow_html=True)
 
+    # Ô nhập liệu chat (Form Submit với Enter)
     st.write("---")
     with st.form(key="chat_form", clear_on_submit=True):
         col_input, col_btn = st.columns([5, 1])
         with col_input:
-            user_q = st.text_input(
-                "Nhập địa điểm / câu hỏi:",
-                value="",
-                placeholder="Hỏi WeatherAI (Nhấn Enter để gửi)...",
-                label_visibility="collapsed"
-            )
+            user_q = st.text_input("Nhập địa điểm / câu hỏi:", value="", placeholder="Hỏi WeatherAI (Nhấn Enter để gửi)...", label_visibility="collapsed")
         with col_btn:
-            submit_btn = st.form_submit_button("Hỏi WeatherAI 🚀", use_container_width=True)
+            submit_btn = st.form_submit_button("Hỏi AI 🚀", use_container_width=True)
 
     if submit_btn and user_q.strip():
         query_text = user_q.strip()
@@ -808,30 +545,17 @@ else:
 
         if intent_type == "CHAT":
             chat_reply = generate_general_chat(query_text)
-            new_entry = {
-                "type": "CHAT",
-                "question": query_text,
-                "reply": chat_reply
-            }
+            new_entry = {"type": "CHAT", "question": query_text, "reply": chat_reply}
 
         elif intent_type == "STORM":
             storm_lat, storm_lon = 18.0, 115.0
             data, _ = fetch_weather_by_coords(storm_lat, storm_lon)
             report = generate_ai_report(query_text, loc_target, pd.DataFrame(data["records"]), target_hours)
-            new_entry = {
-                "type": "STORM",
-                "question": query_text,
-                "location": loc_target,
-                "report": report,
-                "storm_lat": storm_lat,
-                "storm_lon": storm_lon
-            }
+            new_entry = {"type": "STORM", "question": query_text, "location": loc_target, "report": report, "storm_lat": storm_lat, "storm_lon": storm_lon}
 
         else:
             if loc_target == "USE_GPS" and user_gps and "coords" in user_gps:
-                lat = user_gps["coords"]["latitude"]
-                lon = user_gps["coords"]["longitude"]
-                data, err = fetch_weather_by_coords(lat, lon)
+                data, err = fetch_weather_by_coords(user_gps["coords"]["latitude"], user_gps["coords"]["longitude"])
             else:
                 target_place = loc_target if loc_target != "USE_GPS" else "Ho Chi Minh"
                 data, err = fetch_weather_data(target_place)
@@ -839,21 +563,20 @@ else:
             if not err and data:
                 df = pd.DataFrame(data["records"])
                 loc_name = data["name"]
-                num_rows = max(1, target_hours // 3)
-                df_filtered = df.head(num_rows)
+                df_filtered = df.head(max(1, target_hours // 3))
                 report = generate_ai_report(query_text, loc_name, df_filtered, target_hours)
-
-                new_entry = {
-                    "type": "WEATHER",
-                    "question": query_text,
-                    "data": data,
-                    "target_hours": target_hours,
-                    "report": report
-                }
+                new_entry = {"type": "WEATHER", "question": query_text, "data": data, "target_hours": target_hours, "report": report}
 
         if new_entry:
-            st.session_state.chat_history.append(new_entry)
-            # Tự động gửi email thông báo lượt hội thoại mới
-            send_chat_history_email(user_email, user_name, [new_entry])
+            # Nếu đây là câu hỏi đầu tiên của đoạn chat, đặt tiêu đề tự động theo câu hỏi
+            if not current_chats:
+                current_thread["title"] = query_text[:25] + ("..." if len(query_text) > 25 else "")
+
+            current_chats.append(new_entry)
+            current_thread["chats"] = current_chats
+            st.session_state.threads_store[active_tid] = current_thread
+            
+            # Lưu vĩnh viễn vào Web LocalStorage
+            save_threads_to_web()
 
         st.rerun()
