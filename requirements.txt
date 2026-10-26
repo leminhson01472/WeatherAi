@@ -55,5 +55,6 @@ requests
 pandas
 plotly
 python-dotenv
+authlib
 openai
 streamlit-js-eval
