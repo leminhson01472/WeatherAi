@@ -435,7 +435,6 @@ def fetch_weather_data(location_name):
     custom_display_name = query_name.title()
     clean_query = remove_accents(query_name).lower()
     
-    # Chuẩn hóa tên các tỉnh/thành tiếng Việt
     if "da nang" in clean_query:
         query_name = "Da Nang, VN"
         custom_display_name = "Thành phố Đà Nẵng"
@@ -593,42 +592,45 @@ else:
 
     if submit_btn and user_q.strip():
         query_text = user_q.strip()
-        intent_type, loc_target, target_hours = parse_user_intent(query_text)
+        
+        # DÒNG THÔNG BÁO ĐANG XỬ LÝ DỮ LIỆU
+        with st.spinner("⏳ WeatherAI đang phân tích dữ liệu khí tượng và phản hồi..."):
+            intent_type, loc_target, target_hours = parse_user_intent(query_text)
 
-        new_entry = None
+            new_entry = None
 
-        if intent_type == "CHAT":
-            chat_reply = generate_general_chat(query_text)
-            new_entry = {"type": "CHAT", "question": query_text, "reply": chat_reply}
+            if intent_type == "CHAT":
+                chat_reply = generate_general_chat(query_text)
+                new_entry = {"type": "CHAT", "question": query_text, "reply": chat_reply}
 
-        elif intent_type == "STORM":
-            storm_lat, storm_lon = 18.0, 115.0
-            data, _ = fetch_weather_by_coords(storm_lat, storm_lon)
-            report = generate_ai_report(query_text, loc_target, pd.DataFrame(data["records"]), target_hours)
-            new_entry = {"type": "STORM", "question": query_text, "location": loc_target, "report": report, "storm_lat": storm_lat, "storm_lon": storm_lon}
+            elif intent_type == "STORM":
+                storm_lat, storm_lon = 18.0, 115.0
+                data, _ = fetch_weather_by_coords(storm_lat, storm_lon)
+                report = generate_ai_report(query_text, loc_target, pd.DataFrame(data["records"]), target_hours)
+                new_entry = {"type": "STORM", "question": query_text, "location": loc_target, "report": report, "storm_lat": storm_lat, "storm_lon": storm_lon}
 
-        else:
-            if loc_target == "USE_GPS" and user_gps and "coords" in user_gps:
-                data, err = fetch_weather_by_coords(user_gps["coords"]["latitude"], user_gps["coords"]["longitude"])
             else:
-                target_place = loc_target if loc_target != "USE_GPS" else "Ho Chi Minh"
-                data, err = fetch_weather_data(target_place)
+                if loc_target == "USE_GPS" and user_gps and "coords" in user_gps:
+                    data, err = fetch_weather_by_coords(user_gps["coords"]["latitude"], user_gps["coords"]["longitude"])
+                else:
+                    target_place = loc_target if loc_target != "USE_GPS" else "Ho Chi Minh"
+                    data, err = fetch_weather_data(target_place)
 
-            if not err and data:
-                df = pd.DataFrame(data["records"])
-                loc_name = data["name"]
-                df_filtered = df.head(max(1, target_hours // 3))
-                report = generate_ai_report(query_text, loc_name, df_filtered, target_hours)
-                new_entry = {"type": "WEATHER", "question": query_text, "data": data, "target_hours": target_hours, "report": report}
+                if not err and data:
+                    df = pd.DataFrame(data["records"])
+                    loc_name = data["name"]
+                    df_filtered = df.head(max(1, target_hours // 3))
+                    report = generate_ai_report(query_text, loc_name, df_filtered, target_hours)
+                    new_entry = {"type": "WEATHER", "question": query_text, "data": data, "target_hours": target_hours, "report": report}
 
-        if new_entry:
-            if not current_chats:
-                current_thread["title"] = query_text[:25] + ("..." if len(query_text) > 25 else "")
+            if new_entry:
+                if not current_chats:
+                    current_thread["title"] = query_text[:25] + ("..." if len(query_text) > 25 else "")
 
-            current_chats.append(new_entry)
-            current_thread["chats"] = current_chats
-            st.session_state.threads_store[active_tid] = current_thread
-            
-            save_threads_to_web()
+                current_chats.append(new_entry)
+                current_thread["chats"] = current_chats
+                st.session_state.threads_store[active_tid] = current_thread
+                
+                save_threads_to_web()
 
         st.rerun()
