@@ -37,7 +37,7 @@ client = OpenAI(
 MODEL = "gpt-4o"
 
 # ==========================================
-# CƠ CHẾ QUYỀN RIÊNG TƯ: LƯU TỰ ĐỘNG THEO SESSION USER
+# CƠ CHẾ QUYỀN RIÊNG TƯ & LƯU TRỮ CHAT
 # ==========================================
 if "user_session_id" not in st.session_state:
     st.session_state.user_session_id = str(uuid.uuid4())
@@ -63,6 +63,9 @@ def save_user_chat(history):
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = load_user_chat()
 
+if "user_input_text" not in st.session_state:
+    st.session_state.user_input_text = ""
+
 # Import an toàn bộ lấy vị trí GPS
 try:
     from streamlit_js_eval import get_geolocation
@@ -71,7 +74,7 @@ except Exception:
     user_gps = None
 
 # ==========================================
-# 2. SIDEBAR NAVIGATION & TÙY CHỌN RIÊNG TƯ
+# 2. SIDEBAR NAVIGATION & THEME SWITCHER
 # ==========================================
 with st.sidebar:
     st.markdown("### ⚡ WeatherAI Pro")
@@ -98,18 +101,16 @@ with st.sidebar:
     st.write("---")
     st.markdown("#### 🔒 Lịch sử riêng tư")
     
-    # Nút Xuất file lịch sử riêng
     if st.session_state.chat_history:
         chat_json_str = json.dumps(st.session_state.chat_history, ensure_ascii=False, indent=2)
         st.download_button(
-            label="📥 Tải nhật ký chat cá nhân (.json)",
+            label="📥 Tải nhật ký chat (.json)",
             data=chat_json_str,
             file_name=f"my_weather_chat_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
             mime="application/json",
             use_container_width=True
         )
 
-    # Nút Xóa lịch sử riêng tư
     if st.button("🗑️ Xóa lịch sử phiên này", use_container_width=True):
         st.session_state.chat_history = []
         if os.path.exists(SESSION_FILE):
@@ -166,7 +167,7 @@ if is_dark:
             border-radius: 8px !important;
             padding: 10px 16px !important;
         }
-        .stButton > button {
+        .stButton > button, [data-testid="stFormSubmitButton"] > button {
             background: linear-gradient(135deg, #00C2FF 0%, #0284C7 100%) !important;
             color: #0A1327 !important;
             font-weight: 700 !important;
@@ -286,7 +287,7 @@ else:
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
         }
 
-        .stButton > button {
+        .stButton > button, [data-testid="stFormSubmitButton"] > button {
             background: #000000 !important;
             color: #FFFFFF !important;
             font-weight: 600 !important;
@@ -588,11 +589,11 @@ elif active_menu == "⚠️ Cảnh báo dông bão":
         else:
             st.markdown(f'<div class="safe-box">📍 **Khu vực {data_alert["name"]}**: Hiện không ghi nhận cảnh báo dông bão hay mưa lớn cực đoan trong những ngày tới.</div>', unsafe_allow_html=True)
 
-# TAB 3: DỰ BÁO, PHÂN TÍCH & TRÒ CHUYỆN (LUỒNG CHAT TỰ NHIÊN)
+# TAB 3: DỰ BÁO, PHÂN TÍCH & TRÒ CHUYỆN (HỖ TRỢ PHÍM ENTER & KHỞI TẠO TỰ ĐỘNG CLEAR TRANG)
 else:
     st.markdown('<div class="hero-title">WeatherAI(Demo)</div>', unsafe_allow_html=True)
 
-    # 1. HIỂN THỊ CÁC TIN NHẮN TRONG LỊCH SỬ CỦA USER NÀY (TỪ CŨ ĐẾN MỚI)
+    # 1. HIỂN THỊ CÁC TIN NHẮN LỊCH SỬ CHAT
     for idx, chat in enumerate(st.session_state.chat_history):
         st.markdown(f'<div class="user-msg-card"><b>🗣️ Bạn:</b> {chat["question"]}</div>', unsafe_allow_html=True)
 
@@ -675,20 +676,21 @@ else:
             st.plotly_chart(fig, use_container_width=True, key=f"fig_{idx}", config={'displayModeBar': False})
             st.markdown(f'<div class="ai-card"><b>🤖 Phân tích AI:</b><br>{chat["report"]}</div>', unsafe_allow_html=True)
 
-    # 2. Ô NHẬP LIỆU ĐẶT Ở DƯỚI CÙNG TRANG
+    # 2. KHU VỰC NHẬP LIỆU BẰNG ST.FORM (CHO PHÉP BẤM ENTER VÀ TỰ ĐỘNG CLEAR)
     st.write("---")
-    col_input, col_btn = st.columns([5, 1])
-    with col_input:
-        user_q = st.text_input(
-            "Nhập địa điểm / câu hỏi:",
-            value="",
-            placeholder="Hỏi WeatherAI...",
-            label_visibility="collapsed"
-        )
-    with col_btn:
-        submit_btn = st.button("Gửi 🚀", use_container_width=True)
+    with st.form(key="chat_form", clear_on_submit=True):
+        col_input, col_btn = st.columns([5, 1])
+        with col_input:
+            user_q = st.text_input(
+                "Nhập địa điểm / câu hỏi:",
+                value="",
+                placeholder="Hỏi WeatherAI (Nhấn Enter để gửi)...",
+                label_visibility="collapsed"
+            )
+        with col_btn:
+            submit_btn = st.form_submit_button("Gửi 🚀", use_container_width=True)
 
-    # 3. XỬ LÝ KHI BẤM NÚT GỬI & LƯU TƯƠNG ỨNG SESSION USER
+    # 3. XỬ LÝ DỮ LIỆU KHI NHẤN ENTER HOẶC NÚT GỬI
     if submit_btn and user_q.strip():
         query_text = user_q.strip()
         intent_type, loc_target, target_hours = parse_user_intent(query_text)
@@ -741,6 +743,6 @@ else:
                     "report": report
                 })
 
-        # Lưu lại lịch sử riêng cho session ID hiện tại
+        # Lưu lại lịch sử phiên làm việc
         save_user_chat(st.session_state.chat_history)
         st.rerun()
