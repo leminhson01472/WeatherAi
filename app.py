@@ -1,11 +1,11 @@
 import os
 import json
-import uuid
 from datetime import datetime, timezone, timedelta
 import requests
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -18,7 +18,7 @@ AI_KEY = os.getenv("APIGIARE_API_KEY") or (st.secrets.get("APIGIARE_API_KEY") if
 WEATHER_KEY = os.getenv("OPENWEATHER_API_KEY") or (st.secrets.get("OPENWEATHER_API_KEY") if "OPENWEATHER_API_KEY" in st.secrets else None)
 
 st.set_page_config(
-    page_title="WeatherAI - Trợ lý Khí tượng AI",
+    page_title="WeatherAI Pro - Trợ lý Khí tượng AI",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -37,33 +37,67 @@ client = OpenAI(
 MODEL = "gpt-4o"
 
 # ==========================================
-# 2. QUẢN LÝ PHIÊN CHAT RIÊNG TƯ
+# 2. ĐỒNG BỘ DỮ LIỆU BẰNG WEB LOCALSTORAGE
 # ==========================================
-if "user_session_id" not in st.session_state:
-    st.session_state.user_session_id = str(uuid.uuid4())
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
-SESSION_FILE = f"chat_{st.session_state.user_session_id}.json"
+if "pending_new_chat" not in st.session_state:
+    st.session_state.pending_new_chat = None
 
-def load_user_chat():
-    if os.path.exists(SESSION_FILE):
-        try:
-            with open(SESSION_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return []
-    return []
+# Mã JavaScript đồng bộ LocalStorage với Streamlit
+local_storage_js = f"""
+<script>
+    const STORAGE_KEY = 'weatherai_pro_chat_history';
 
-def save_user_chat(history):
+    // Đọc lịch sử từ LocalStorage gửi về Streamlit
+    function syncFromWebStorage() {{
+        const storedData = localStorage.getItem(STORAGE_KEY);
+        if (storedData) {{
+            window.parent.postMessage({{
+                type: 'streamlit:setComponentValue',
+                value: storedData
+            }}, '*');
+        }} else {{
+            window.parent.postMessage({{
+                type: 'streamlit:setComponentValue',
+                value: '[]'
+            }}, '*');
+        }}
+    }}
+
+    // Tự động chạy khi load
+    setTimeout(syncFromWebStorage, 300);
+</script>
+"""
+
+# Nhận dữ liệu từ LocalStorage của Web
+web_storage_data = components.html(local_storage_js, height=0)
+
+# Cập nhật Session State nếu lần đầu khởi động ứng dụng
+if web_storage_data and isinstance(web_storage_data, str) and not st.session_state.chat_history:
     try:
-        with open(SESSION_FILE, "w", encoding="utf-8") as f:
-            json.dump(history, f, ensure_ascii=False, indent=2)
+        loaded_history = json.loads(web_storage_data)
+        if isinstance(loaded_history, list):
+            st.session_state.chat_history = loaded_history
     except Exception:
         pass
 
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = load_user_chat()
+# Thêm cuộc trò chuyện mới và lưu vào LocalStorage
+if st.session_state.pending_new_chat:
+    st.session_state.chat_history.append(st.session_state.pending_new_chat)
+    st.session_state.pending_new_chat = None
+    
+    # Mã JS để lưu dữ liệu mới vào LocalStorage
+    updated_json = json.dumps(st.session_state.chat_history, ensure_ascii=False)
+    save_js = f"""
+    <script>
+        localStorage.setItem('weatherai_pro_chat_history', {json.dumps(updated_json)});
+    </script>
+    """
+    components.html(save_js, height=0)
 
-# Import an toàn vị trí GPS
+# Lấy GPS nếu có
 try:
     from streamlit_js_eval import get_geolocation
     user_gps = get_geolocation()
@@ -106,34 +140,38 @@ with st.sidebar:
     )
     
     st.write("---")
-    st.markdown("<h4 style='color: #F8FAFC !important;'>🔒 Lịch sử riêng tư</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #F8FAFC !important;'>🌐 Lưu trữ Trình duyệt (Web)</h4>", unsafe_allow_html=True)
     
     if st.session_state.chat_history:
         chat_json_str = json.dumps(st.session_state.chat_history, ensure_ascii=False, indent=2)
         st.download_button(
             label="📥 Tải nhật ký chat (.json)",
             data=chat_json_str,
-            file_name=f"weatherai_chat_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            file_name=f"weatherai_web_chat_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
             mime="application/json",
             use_container_width=True
         )
 
-    if st.button("🗑️ Xóa lịch sử phiên này", use_container_width=True):
+    if st.button("🗑️ Xóa lịch sử trên Web", use_container_width=True):
         st.session_state.chat_history = []
-        if os.path.exists(SESSION_FILE):
-            os.remove(SESSION_FILE)
+        clear_storage_js = """
+        <script>
+            localStorage.removeItem('weatherai_pro_chat_history');
+        </script>
+        """
+        components.html(clear_storage_js, height=0)
         st.rerun()
 
     st.write("---")
     st.markdown("""
         <div style="background: rgba(18, 27, 47, 0.7); backdrop-filter: blur(12px); padding: 14px; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.2);">
-            <div style="font-size: 10px; color: #94A3B8 !important; font-weight: 700; text-transform: uppercase;">MÔ HÌNH DỰ BÁO</div>
-            <div style="font-size: 14px; color: #38BDF8 !important; font-weight: 700; margin-top: 4px;">WeatherAI Pro Neural</div>
+            <div style="font-size: 10px; color: #94A3B8 !important; font-weight: 700; text-transform: uppercase;">LƯU TRỮ TRỰC TIẾP</div>
+            <div style="font-size: 13px; color: #38BDF8 !important; font-weight: 700; margin-top: 4px;">Web LocalStorage Active</div>
         </div>
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. DYNAMIC CSS STYLES (ĐÈ MÀU CHỮ TRIỆT ĐỂ)
+# 4. DYNAMIC CSS STYLES (AETHERIA DARK GLASS)
 # ==========================================
 if is_dark:
     st.markdown("""
@@ -145,7 +183,6 @@ if is_dark:
             padding-bottom: 2rem !important;
         }
 
-        /* NỀN TOÀN TRANG DARK GLASS */
         html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
             background-color: #0A1327 !important;
             color: #F8FAFC !important;
@@ -154,14 +191,12 @@ if is_dark:
 
         #MainMenu, footer {visibility: hidden;}
 
-        /* SIDEBAR GLASSMORPHISM & SẮC NÉT CHỮ */
         [data-testid="stSidebar"] {
             background-color: rgba(5, 14, 33, 0.85) !important;
             backdrop-filter: blur(20px) !important;
             border-right: 1px solid rgba(56, 189, 248, 0.15) !important;
         }
 
-        /* TẤT CẢ CHỮ TRONG SIDEBAR ÉP SANG MÀU SÁNG */
         [data-testid="stSidebar"] *, 
         [data-testid="stSidebar"] label, 
         [data-testid="stSidebar"] p, 
@@ -170,13 +205,11 @@ if is_dark:
             color: #F8FAFC !important;
         }
 
-        /* NÚT RADIO ĐƯỢC CHỌN */
         [data-testid="stSidebar"] [data-aria-selected="true"] p {
             color: #38BDF8 !important;
             font-weight: 700 !important;
         }
 
-        /* KHU VỰC Ô NHẬP LIỆU TEXT INPUT */
         .stTextInput > div > div > input {
             background-color: rgba(18, 27, 47, 0.85) !important;
             border: 1px solid rgba(56, 189, 248, 0.3) !important;
@@ -197,7 +230,6 @@ if is_dark:
             box-shadow: 0 0 16px rgba(0, 194, 255, 0.35) !important;
         }
 
-        /* NÚT GỬI CÂU HỎI */
         .stButton > button, [data-testid="stFormSubmitButton"] > button {
             background: linear-gradient(135deg, #00C2FF 0%, #0284C7 100%) !important;
             color: #0A1327 !important;
@@ -208,7 +240,6 @@ if is_dark:
             box-shadow: 0 8px 20px rgba(0, 194, 255, 0.3) !important;
         }
 
-        /* TIÊU ĐỀ CHÍNH */
         .hero-title {
             text-align: center;
             font-family: 'Plus Jakarta Sans', sans-serif;
@@ -220,7 +251,6 @@ if is_dark:
             letter-spacing: -0.02em;
         }
 
-        /* THẺ THÔNG SỐ TELEMETRY */
         .telemetry-card {
             background: rgba(24, 35, 60, 0.75);
             backdrop-filter: blur(16px);
@@ -248,7 +278,6 @@ if is_dark:
             color: #38BDF8 !important;
         }
 
-        /* KHUNG CHAT USER & AI */
         .user-msg-card {
             background: rgba(56, 189, 248, 0.15);
             border: 1px solid rgba(56, 189, 248, 0.3);
@@ -640,9 +669,9 @@ elif active_menu == "⚠️ Cảnh báo dông bão":
 
 # TAB 3: DỰ BÁO, PHÂN TÍCH & TRÒ CHUYỆN
 else:
-    st.markdown('<div class="hero-title">WeatherAI(Demo)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="hero-title">WeatherAI Pro Dashboard</div>', unsafe_allow_html=True)
 
-    # 1. HIỂN THỊ LỊCH SỬ CHAT
+    # 1. HIỂN THỊ LỊCH SỬ CHAT LƯU TỪ WEB
     for idx, chat in enumerate(st.session_state.chat_history):
         st.markdown(f'<div class="user-msg-card"><b>🗣️ Bạn:</b> {chat["question"]}</div>', unsafe_allow_html=True)
 
@@ -691,7 +720,7 @@ else:
             with c4:
                 st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">LƯỢNG MƯA 24H & ĐỘ ẨM</div><div class="telemetry-value">{total_rain_24h:.1f} mm</div><div class="telemetry-sub">Độ ẩm {curr_hum}%</div></div>', unsafe_allow_html=True)
 
-            # Vẽ biểu đồ Plotly
+            # Biểu đồ Plotly
             fig = go.Figure()
             line_col = "#00C2FF" if is_dark else "#0284C7"
             bar_col = "rgba(56, 189, 248, 0.5)" if is_dark else "rgba(2, 132, 199, 0.3)"
@@ -739,31 +768,33 @@ else:
         with col_btn:
             submit_btn = st.form_submit_button("Hỏi WeatherAI 🚀", use_container_width=True)
 
-    # 3. XỬ LÝ DỮ LIỆU
+    # 3. XỬ LÝ VÀ CHUẨN BỊ LƯU VÀO WEB LOCALSTORAGE
     if submit_btn and user_q.strip():
         query_text = user_q.strip()
         intent_type, loc_target, target_hours = parse_user_intent(query_text)
 
+        new_entry = None
+
         if intent_type == "CHAT":
             chat_reply = generate_general_chat(query_text)
-            st.session_state.chat_history.append({
+            new_entry = {
                 "type": "CHAT",
                 "question": query_text,
                 "reply": chat_reply
-            })
+            }
 
         elif intent_type == "STORM":
             storm_lat, storm_lon = 18.0, 115.0
             data, _ = fetch_weather_by_coords(storm_lat, storm_lon)
             report = generate_ai_report(query_text, loc_target, pd.DataFrame(data["records"]), target_hours)
-            st.session_state.chat_history.append({
+            new_entry = {
                 "type": "STORM",
                 "question": query_text,
                 "location": loc_target,
                 "report": report,
                 "storm_lat": storm_lat,
                 "storm_lon": storm_lon
-            })
+            }
 
         else:
             if loc_target == "USE_GPS" and user_gps and "coords" in user_gps:
@@ -781,13 +812,15 @@ else:
                 df_filtered = df.head(num_rows)
                 report = generate_ai_report(query_text, loc_name, df_filtered, target_hours)
 
-                st.session_state.chat_history.append({
+                new_entry = {
                     "type": "WEATHER",
                     "question": query_text,
                     "data": data,
                     "target_hours": target_hours,
                     "report": report
-                })
+                }
 
-        save_user_chat(st.session_state.chat_history)
+        if new_entry:
+            st.session_state.pending_new_chat = new_entry
+
         st.rerun()
