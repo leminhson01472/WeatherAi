@@ -37,7 +37,7 @@ client = OpenAI(
 MODEL = "gpt-4o"
 
 # ==========================================
-# 2. ĐỒNG BỘ DỮ LIỆU BẰNG WEB LOCALSTORAGE
+# 2. LƯU TRỰC TIẾP TRÊN WEB LOCALSTORAGE (BẢO MẬT)
 # ==========================================
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
@@ -45,36 +45,31 @@ if "chat_history" not in st.session_state:
 if "pending_new_chat" not in st.session_state:
     st.session_state.pending_new_chat = None
 
-# Mã JavaScript đồng bộ LocalStorage với Streamlit
-local_storage_js = f"""
+# Mã JavaScript đồng bộ dữ liệu với LocalStorage của trình duyệt
+local_storage_js = """
 <script>
-    const STORAGE_KEY = 'weatherai_pro_chat_history';
+    const STORAGE_KEY = 'weatherai_pro_web_chat';
 
-    // Đọc lịch sử từ LocalStorage gửi về Streamlit
-    function syncFromWebStorage() {{
+    function syncFromWebStorage() {
         const storedData = localStorage.getItem(STORAGE_KEY);
-        if (storedData) {{
-            window.parent.postMessage({{
+        if (storedData) {
+            window.parent.postMessage({
                 type: 'streamlit:setComponentValue',
                 value: storedData
-            }}, '*');
-        }} else {{
-            window.parent.postMessage({{
+            }, '*');
+        } else {
+            window.parent.postMessage({
                 type: 'streamlit:setComponentValue',
                 value: '[]'
-            }}, '*');
-        }}
-    }}
-
-    // Tự động chạy khi load
+            }, '*');
+        }
+    }
     setTimeout(syncFromWebStorage, 300);
 </script>
 """
 
-# Nhận dữ liệu từ LocalStorage của Web
 web_storage_data = components.html(local_storage_js, height=0)
 
-# Cập nhật Session State nếu lần đầu khởi động ứng dụng
 if web_storage_data and isinstance(web_storage_data, str) and not st.session_state.chat_history:
     try:
         loaded_history = json.loads(web_storage_data)
@@ -83,21 +78,20 @@ if web_storage_data and isinstance(web_storage_data, str) and not st.session_sta
     except Exception:
         pass
 
-# Thêm cuộc trò chuyện mới và lưu vào LocalStorage
+# Thêm tin nhắn mới và tự động cập nhật vào LocalStorage trên máy người dùng
 if st.session_state.pending_new_chat:
     st.session_state.chat_history.append(st.session_state.pending_new_chat)
     st.session_state.pending_new_chat = None
     
-    # Mã JS để lưu dữ liệu mới vào LocalStorage
     updated_json = json.dumps(st.session_state.chat_history, ensure_ascii=False)
     save_js = f"""
     <script>
-        localStorage.setItem('weatherai_pro_chat_history', {json.dumps(updated_json)});
+        localStorage.setItem('weatherai_pro_web_chat', {json.dumps(updated_json)});
     </script>
     """
     components.html(save_js, height=0)
 
-# Lấy GPS nếu có
+# Lấy thông tin GPS an toàn nếu người dùng cho phép
 try:
     from streamlit_js_eval import get_geolocation
     user_gps = get_geolocation()
@@ -140,23 +134,13 @@ with st.sidebar:
     )
     
     st.write("---")
-    st.markdown("<h4 style='color: #F8FAFC !important;'>🌐 Lưu trữ Trình duyệt (Web)</h4>", unsafe_allow_html=True)
-    
-    if st.session_state.chat_history:
-        chat_json_str = json.dumps(st.session_state.chat_history, ensure_ascii=False, indent=2)
-        st.download_button(
-            label="📥 Tải nhật ký chat (.json)",
-            data=chat_json_str,
-            file_name=f"weatherai_web_chat_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-            mime="application/json",
-            use_container_width=True
-        )
+    st.markdown("<h4 style='color: #F8FAFC !important;'>🛡️ Quản lý Bộ nhớ Web</h4>", unsafe_allow_html=True)
 
-    if st.button("🗑️ Xóa lịch sử trên Web", use_container_width=True):
+    if st.button("🗑️ Xóa toàn bộ lịch sử trên Web", use_container_width=True):
         st.session_state.chat_history = []
         clear_storage_js = """
         <script>
-            localStorage.removeItem('weatherai_pro_chat_history');
+            localStorage.removeItem('weatherai_pro_web_chat');
         </script>
         """
         components.html(clear_storage_js, height=0)
@@ -165,13 +149,13 @@ with st.sidebar:
     st.write("---")
     st.markdown("""
         <div style="background: rgba(18, 27, 47, 0.7); backdrop-filter: blur(12px); padding: 14px; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.2);">
-            <div style="font-size: 10px; color: #94A3B8 !important; font-weight: 700; text-transform: uppercase;">LƯU TRỮ TRỰC TIẾP</div>
-            <div style="font-size: 13px; color: #38BDF8 !important; font-weight: 700; margin-top: 4px;">Web LocalStorage Active</div>
+            <div style="font-size: 10px; color: #94A3B8 !important; font-weight: 700; text-transform: uppercase;">TRẠNG THÁI BẢO MẬT</div>
+            <div style="font-size: 12px; color: #38BDF8 !important; font-weight: 700; margin-top: 4px;">🔒 Lưu trên Trình duyệt Web</div>
         </div>
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. DYNAMIC CSS STYLES (AETHERIA DARK GLASS)
+# 4. DYNAMIC CSS STYLES (ĐÈ MÀU CHỮ SẮC NÉT)
 # ==========================================
 if is_dark:
     st.markdown("""
@@ -183,6 +167,7 @@ if is_dark:
             padding-bottom: 2rem !important;
         }
 
+        /* NỀN TOÀN TRANG DARK GLASS */
         html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
             background-color: #0A1327 !important;
             color: #F8FAFC !important;
@@ -191,12 +176,14 @@ if is_dark:
 
         #MainMenu, footer {visibility: hidden;}
 
+        /* SIDEBAR GLASSMORPHISM */
         [data-testid="stSidebar"] {
             background-color: rgba(5, 14, 33, 0.85) !important;
             backdrop-filter: blur(20px) !important;
             border-right: 1px solid rgba(56, 189, 248, 0.15) !important;
         }
 
+        /* ÉP MÀU CHỮ TOÀN BỘ SIDEBAR SÁNG RÕ */
         [data-testid="stSidebar"] *, 
         [data-testid="stSidebar"] label, 
         [data-testid="stSidebar"] p, 
@@ -210,6 +197,7 @@ if is_dark:
             font-weight: 700 !important;
         }
 
+        /* INPUT FIELD */
         .stTextInput > div > div > input {
             background-color: rgba(18, 27, 47, 0.85) !important;
             border: 1px solid rgba(56, 189, 248, 0.3) !important;
@@ -230,6 +218,7 @@ if is_dark:
             box-shadow: 0 0 16px rgba(0, 194, 255, 0.35) !important;
         }
 
+        /* BUTTONS */
         .stButton > button, [data-testid="stFormSubmitButton"] > button {
             background: linear-gradient(135deg, #00C2FF 0%, #0284C7 100%) !important;
             color: #0A1327 !important;
@@ -251,6 +240,7 @@ if is_dark:
             letter-spacing: -0.02em;
         }
 
+        /* CARDS & PANELS */
         .telemetry-card {
             background: rgba(24, 35, 60, 0.75);
             backdrop-filter: blur(16px);
@@ -671,7 +661,7 @@ elif active_menu == "⚠️ Cảnh báo dông bão":
 else:
     st.markdown('<div class="hero-title">WeatherAI Pro Dashboard</div>', unsafe_allow_html=True)
 
-    # 1. HIỂN THỊ LỊCH SỬ CHAT LƯU TỪ WEB
+    # 1. HIỂN THỊ LỊCH SỬ CHAT TỰ ĐỘNG ĐỌC TỪ LOCALSTORAGE TRÌNH DUYỆT
     for idx, chat in enumerate(st.session_state.chat_history):
         st.markdown(f'<div class="user-msg-card"><b>🗣️ Bạn:</b> {chat["question"]}</div>', unsafe_allow_html=True)
 
@@ -720,7 +710,7 @@ else:
             with c4:
                 st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">LƯỢNG MƯA 24H & ĐỘ ẨM</div><div class="telemetry-value">{total_rain_24h:.1f} mm</div><div class="telemetry-sub">Độ ẩm {curr_hum}%</div></div>', unsafe_allow_html=True)
 
-            # Biểu đồ Plotly
+            # Vẽ biểu đồ Plotly
             fig = go.Figure()
             line_col = "#00C2FF" if is_dark else "#0284C7"
             bar_col = "rgba(56, 189, 248, 0.5)" if is_dark else "rgba(2, 132, 199, 0.3)"
@@ -754,7 +744,7 @@ else:
             st.plotly_chart(fig, use_container_width=True, key=f"fig_{idx}", config={'displayModeBar': False})
             st.markdown(f'<div class="ai-card"><b>🤖 Phân tích WeatherAI:</b><br>{chat["report"]}</div>', unsafe_allow_html=True)
 
-    # 2. KHU VỰC NHẬP LIỆU BẰNG ST.FORM (ENTER ĐỂ GỬI & TỰ ĐỘNG XÓA CHỮ)
+    # 2. Ô NHẬP LIỆU BẰNG ST.FORM (ENTER ĐỂ GỬI & TỰ ĐỘNG XÓA CHỮ)
     st.write("---")
     with st.form(key="chat_form", clear_on_submit=True):
         col_input, col_btn = st.columns([5, 1])
@@ -768,7 +758,7 @@ else:
         with col_btn:
             submit_btn = st.form_submit_button("Hỏi WeatherAI 🚀", use_container_width=True)
 
-    # 3. XỬ LÝ VÀ CHUẨN BỊ LƯU VÀO WEB LOCALSTORAGE
+    # 3. XỬ LÝ VÀ CHUẨN BỊ ĐƯA VÀO LOCALSTORAGE TRÌNH DUYỆT
     if submit_btn and user_q.strip():
         query_text = user_q.strip()
         intent_type, loc_target, target_hours = parse_user_intent(query_text)
