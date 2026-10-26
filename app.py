@@ -25,7 +25,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Kiểm tra trạng thái Đăng nhập Google (Chuẩn st.user)
 if not st.user.is_logged_in:
     st.markdown("""
         <div style="text-align: center; padding: 60px 20px;">
@@ -46,7 +45,6 @@ if not st.user.is_logged_in:
             st.login("google")
     st.stop()
 
-# Đã đăng nhập thành công
 user_email = st.user.email
 user_name = st.user.name
 
@@ -62,11 +60,10 @@ client = OpenAI(
 )
 MODEL = "gpt-4o"
 
-# Key LocalStorage phân tách riêng theo Email người dùng
 USER_STORAGE_KEY = f"weatherai_pro_threads_{user_email.replace('@', '_at_').replace('.', '_')}"
 
 # ==========================================
-# 2. ĐỒNG BỘ LOCALSTORAGE CÁC PHIÊN TRÒ CHUYỆN (THREADS)
+# 2. ĐỒNG BỘ LOCALSTORAGE CÁC PHIÊN TRÒ CHUYỆN
 # ==========================================
 if "threads_store" not in st.session_state:
     st.session_state.threads_store = {}
@@ -133,7 +130,6 @@ if not st.session_state.threads_store:
 if not st.session_state.active_thread_id or st.session_state.active_thread_id not in st.session_state.threads_store:
     st.session_state.active_thread_id = list(st.session_state.threads_store.keys())[-1]
 
-# Lấy GPS an toàn
 try:
     from streamlit_js_eval import get_geolocation
     user_gps = get_geolocation()
@@ -141,7 +137,7 @@ except Exception:
     user_gps = None
 
 # ==========================================
-# 3. SIDEBAR NAVIGATION (DẠNG GEMINI)
+# 3. SIDEBAR NAVIGATION
 # ==========================================
 with st.sidebar:
     st.markdown("""
@@ -219,7 +215,7 @@ with st.sidebar:
             st.logout()
 
 # ==========================================
-# 4. DYNAMIC CSS STYLES (DARK GLASS)
+# 4. DYNAMIC CSS STYLES
 # ==========================================
 if is_dark:
     st.markdown("""
@@ -284,31 +280,6 @@ if is_dark:
             margin-bottom: 20px;
         }
 
-        .telemetry-card {
-            background: rgba(24, 35, 60, 0.75);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(56, 189, 248, 0.18);
-            border-radius: 16px;
-            padding: 16px;
-        }
-        .telemetry-label {
-            font-size: 11px;
-            font-weight: 700;
-            color: #94A3B8 !important;
-            text-transform: uppercase;
-        }
-        .telemetry-value {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            font-size: 24px;
-            font-weight: 700;
-            color: #F8FAFC !important;
-            margin: 4px 0;
-        }
-        .telemetry-sub {
-            font-size: 12px;
-            color: #38BDF8 !important;
-        }
-
         .user-msg-card {
             background: rgba(56, 189, 248, 0.15);
             border: 1px solid rgba(56, 189, 248, 0.3);
@@ -330,14 +301,6 @@ if is_dark:
             color: #F8FAFC !important;
         }
         
-        .alert-box {
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            border-left: 4px solid #EF4444;
-            border-radius: 16px;
-            padding: 18px;
-            color: #F8FAFC !important;
-        }
         .safe-box {
             background: rgba(16, 185, 129, 0.15);
             border: 1px solid rgba(16, 185, 129, 0.4);
@@ -350,7 +313,7 @@ if is_dark:
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 5. HÀM XỬ LÝ DỮ LIỆU & AI
+# 5. HÀM XỬ LÝ DỮ LIỆU & AI (HIỂN THỊ ĐỊA DANH CHI TIẾT)
 # ==========================================
 def remove_accents(input_str):
     nfkd_form = unicodedata.normalize('NFKD', input_str)
@@ -360,7 +323,7 @@ def parse_user_intent(user_question):
     prompt = f"""
 Phân tích câu hỏi người dùng và trả về định dạng JSON/Text ngắn gọn:
 1. Ý định (is_weather): Trả về 'STORM' nếu hỏi về siêu bão, bão, áp thấp. Trả về 'WEATHER' nếu người dùng hỏi tra cứu thời tiết địa phương. Trả về 'CHAT' nếu chỉ chào hỏi, tán gẫu.
-2. Tên địa điểm (location): Tên Tỉnh/Thành/Huyện/Bão. Trả về 'USE_GPS' nếu không nhắc tới địa danh.
+2. Tên địa điểm (location): Tên Tỉnh/Thành/Huyện/Xã/Phường. Trả về 'USE_GPS' nếu không nhắc tới địa danh.
 3. Khoảng thời gian (hours): Số giờ cần xem (24, 48, 72, 120). Mặc định là 120.
 
 Chỉ trả về 1 dòng duy nhất theo định dạng: LOẠI|TÊN_ĐỊA_ĐIỂM|SỐ_GIỜ
@@ -383,27 +346,35 @@ Câu hỏi: {user_question}
 
 
 def fetch_weather_by_coords(lat, lon, fallback_name=None):
-    display_name = fallback_name
+    display_name = None
     
-    if not display_name:
-        try:
-            geo_detail_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lon}&localityLanguage=vi"
-            res_geo = requests.get(geo_detail_url, timeout=5).json()
-            city = res_geo.get("city", "") or res_geo.get("principalSubdivision", "")
-            locality = res_geo.get("locality", "")
+    try:
+        # Lấy địa danh chi tiết từ BigDataCloud API
+        geo_detail_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lon}&localityLanguage=vi"
+        res_geo = requests.get(geo_detail_url, timeout=5).json()
+        
+        locality = res_geo.get("locality", "")  # Xã / Phường
+        city = res_geo.get("city", "")  # Huyện / Quận / Thành phố thuộc tỉnh
+        principal = res_geo.get("principalSubdivision", "")  # Tỉnh / Thành phố trực thuộc TƯ
+        
+        parts = []
+        if locality:
+            parts.append(locality)
+        if city and city.lower() != locality.lower():
+            parts.append(city)
+        if principal and principal.lower() not in [locality.lower(), city.lower()]:
+            parts.append(principal)
             
-            if city:
-                if locality and locality.lower() != city.lower() and not locality.lower().startswith("xã"):
-                    display_name = f"{locality}, {city}"
-                else:
-                    display_name = city if city.startswith(("Tỉnh", "Thành phố", "TP.")) else f"Tỉnh {city}"
-            elif locality:
-                display_name = locality
-        except Exception:
-            pass
+        if parts:
+            display_name = ", ".join(parts)
+    except Exception:
+        pass
 
+    if not display_name and fallback_name:
+        display_name = fallback_name
+        
     if not display_name:
-        display_name = "Vị trí tra cứu"
+        display_name = f"Tọa độ ({lat:.2f}°N, {lon:.2f}°E)"
 
     forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={WEATHER_KEY}&units=metric&lang=vi"
     try:
@@ -432,15 +403,19 @@ def fetch_weather_by_coords(lat, lon, fallback_name=None):
 
 def fetch_weather_data(location_name):
     query_name = location_name.strip()
-    custom_display_name = query_name.title()
     clean_query = remove_accents(query_name).lower()
-    
-    if "da nang" in clean_query:
+    custom_display_name = None
+
+    # Tối ưu geocoding chuẩn cho các tỉnh/thành Việt Nam
+    if "binh dinh" in clean_query:
+        query_name = "Quy Nhon, Binh Dinh, VN"
+        custom_display_name = "TP. Quy Nhơn, Tỉnh Bình Định"
+    elif "da nang" in clean_query:
         query_name = "Da Nang, VN"
         custom_display_name = "Thành phố Đà Nẵng"
     elif "dong nai" in clean_query:
         query_name = "Bien Hoa, Dong Nai, VN"
-        custom_display_name = "Tỉnh Đồng Nai"
+        custom_display_name = "TP. Biên Hòa, Tỉnh Đồng Nai"
     elif "ho chi minh" in clean_query or "sai gon" in clean_query:
         query_name = "Ho Chi Minh, VN"
         custom_display_name = "TP. Hồ Chí Minh"
@@ -496,13 +471,14 @@ def generate_ai_report(user_question, location_name, df_weather, target_hours):
 Bạn là WeatherAI Intelligence Pro - Trợ lý Khí tượng AI cao cấp.
 Thời gian hệ thống hiện tại: {today_str}.
 
-Dưới đây là BẢNG DỮ LIỆU KHÍ TƯỢNG DỰ BÁO TRỰC TIẾP TỪ VỆ TINH (OPENWEATHERMAP API) trong {target_hours} giờ tới tại '{location_name}':
+Dưới đây là BẢNG DỮ LIỆU KHÍ TƯỢNG DỰ BÁO TRỰC TIẾP TỪ VỆ TINH TRONG {target_hours} GIỜ TỚI TẠI KHU VỰC CHI TIẾT '{location_name}':
 {weather_summary}
 
 QUY TẮC PHẢN HỒI NGHÊM NGẶT:
-1. Dữ liệu trên là DỮ LIỆU THỜI GIAN THỰC ĐƯỢC CẤP TỪ HỆ THỐNG RADAR/API. Tuyệt đối KHÔNG ĐƯỢC nói "dữ liệu chỉ cập nhật đến 2023" hay từ chối cung cấp thông tin.
-2. Hãy phân tích ngắn gọn, chính xác xu hướng nhiệt độ, khả năng có mưa, độ ẩm và đưa ra lời khuyên phù hợp cho người dùng dựa trên đúng bảng dữ liệu được cung cấp ở trên.
-3. Trả lời trực tiếp câu hỏi: "{user_question}".
+1. NGAY TRONG CÂU MỞ ĐẦU, BẠN PHẢI MÔ TẢ CHI TIẾT ĐỊA DANH KHU VỰC CỤ THỂ (Ví dụ: "Tại [Tên Xã/Phường, Huyện/Quận, Tỉnh/Thành phố]...").
+2. Dữ liệu trên là DỮ LIỆU THỜI GIAN THỰC ĐƯỢC CẤP TỪ HỆ THỐNG RADAR/API. Tuyệt đối KHÔNG ĐƯỢC nói "dữ liệu chỉ cập nhật đến 2023" hay từ chối cung cấp thông tin.
+3. Phân tích chính xác xu hướng nhiệt độ, lượng mưa, độ ẩm và đưa ra lời khuyên thiết thực cho người dùng dựa trên đúng dữ liệu trên.
+4. Trả lời trực tiếp câu hỏi: "{user_question}".
 """
     try:
         res = client.chat.completions.create(
@@ -561,7 +537,7 @@ else:
             df_filtered = df_full.head(num_rows)
             loc_name = data["name"]
 
-            st.markdown(f"📍 **Thời tiết tại {loc_name}** ({data['lat']:.2f}°N, {data['lon']:.2f}°E)")
+            st.markdown(f"📍 **Thời tiết tại: {loc_name}** ({data['lat']:.2f}°N, {data['lon']:.2f}°E)")
 
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=df_filtered["Thời gian"], y=df_filtered["Nhiệt độ (°C)"], mode="lines+markers", name="Nhiệt độ (°C)", line=dict(color="#00C2FF", width=3)))
@@ -593,7 +569,6 @@ else:
     if submit_btn and user_q.strip():
         query_text = user_q.strip()
         
-        # DÒNG THÔNG BÁO ĐANG XỬ LÝ DỮ LIỆU
         with st.spinner("⏳ WeatherAI đang phân tích dữ liệu khí tượng và phản hồi..."):
             intent_type, loc_target, target_hours = parse_user_intent(query_text)
 
