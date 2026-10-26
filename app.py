@@ -25,7 +25,23 @@ st.set_page_config(
 )
 
 # Kiểm tra trạng thái Đăng nhập Google
-if not st.experimental_user.is_logged_in:
+# ==========================================
+# 1. CẤU HÌNH TRANG & XÁC THỰC GOOGLE LOGIN
+# ==========================================
+load_dotenv()
+
+AI_KEY = os.getenv("APIGIARE_API_KEY") or (st.secrets.get("APIGIARE_API_KEY") if "APIGIARE_API_KEY" in st.secrets else None)
+WEATHER_KEY = os.getenv("OPENWEATHER_API_KEY") or (st.secrets.get("OPENWEATHER_API_KEY") if "OPENWEATHER_API_KEY" in st.secrets else None)
+
+st.set_page_config(
+    page_title="WeatherAI Pro - Trợ lý Khí tượng AI",
+    page_icon="⚡",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Kiểm tra trạng thái Đăng nhập Google (Đã sửa từ st.experimental_user -> st.user)
+if not st.user.is_logged_in:
     st.markdown("""
         <div style="text-align: center; padding: 60px 20px;">
             <div style="width: 70px; height: 70px; border-radius: 50%; background: #00C2FF; display: inline-flex; align-items: center; justify-content: center; color: #0A1327; box-shadow: 0 0 35px rgba(0,194,255,0.5); font-size: 36px; margin-bottom: 24px;">
@@ -45,9 +61,9 @@ if not st.experimental_user.is_logged_in:
             st.login("google")
     st.stop()
 
-# Đã đăng nhập thành công
-user_email = st.experimental_user.email
-user_name = st.experimental_user.name
+# Đã đăng nhập thành công (Lấy thông tin từ st.user)
+user_email = st.user.email
+user_name = st.user.name
 
 if not AI_KEY or not WEATHER_KEY:
     st.error("❌ Thiếu APIGIARE_API_KEY hoặc OPENWEATHER_API_KEY trong cấu hình Secrets!")
