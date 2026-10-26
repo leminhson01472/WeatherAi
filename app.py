@@ -77,7 +77,7 @@ with st.sidebar:
     if st.button("🗑️ Xóa lịch sử trò chuyện", use_container_width=True):
         st.session_state.chat_history = []
         st.rerun()
-    st.write("📊Dự đoán cổ phiếu *(coming soon)* ")
+
     st.write("---")
     st.markdown("""
         <div style="background: rgba(128,128,128,0.1); padding: 12px; border-radius: 10px;">
@@ -165,7 +165,7 @@ if is_dark:
             border: 1px solid rgba(56, 189, 248, 0.3);
             border-radius: 12px;
             padding: 14px 18px;
-            margin-top: 12px;
+            margin-top: 15px;
             color: #F8FAFC;
         }
 
@@ -285,7 +285,7 @@ else:
             border: 1px solid #DCFCE7;
             border-radius: 12px;
             padding: 14px 18px;
-            margin-top: 12px;
+            margin-top: 15px;
             color: #166534;
         }
 
@@ -437,7 +437,24 @@ def fetch_weather_data(location_name):
 
 
 def generate_general_chat(user_question):
-    system_prompt = "Bạn là Trợ lý AI WeatherAI thân thiện, thông minh. Hãy trò chuyện tự nhiên, lịch sự với người dùng. Nếu người dùng không hỏi về thời tiết, tuyệt đối KHÔNG phân tích dự báo thời tiết hay nhắc tới dữ liệu khí tượng."
+    system_prompt = """
+Bạn là Trợ lý AI Khí tượng chuyên sâu WeatherAI Pro.
+
+QUY TẮC ĐIỀU HƯỚNG BẮC CẦU:
+1. Nếu người dùng chào hỏi cơ bản (ví dụ: 'chào bạn', 'bạn là ai'): Trả lời lịch sự, ngắn gọn và giới thiệu bạn có thể giúp gì về thời tiết/dự báo/dông bão.
+2. Nếu người dùng hỏi các câu KHÔNG LIÊN QUAN ĐẾN THỜI TIẾT (ví dụ: toán học, lập trình, chứng khoán, ẩm thực, lịch sử, đời sống...):
+   - Trả lời ngắn gọn 1 câu duy nhất mang tính lịch sự.
+   - Nhẹ nhàng khéo léo chuyển hướng (pivot) người dùng quay trở lại chủ đề Thời tiết & Khí tượng.
+   - Gợi ý cho người dùng 2-3 câu hỏi thời tiết mẫu (ví dụ: tra cứu thời tiết địa phương, xem bản đồ bão, hoặc cảnh báo mưa lớn).
+
+MẪU PHẢN HỒI ĐIỀU HƯỚNG:
+"Dạ, mình là Trợ lý AI chuyên biệt về Thời tiết & Khí tượng! Rất tiếc mình không thể hỗ trợ chuyên sâu về [Chủ đề người dùng hỏi]. 
+
+Tuy nhiên, mình có thể giúp bạn kiểm tra dự báo thời tiết chuẩn xác ngay lúc này! Bạn có muốn biết:
+1. ☀️ Thời tiết hôm nay tại khu vực của bạn ra sao?
+2. 🌧️ Cảnh báo dông bão hoặc lượng mưa trong 24h tới?
+3. 🛰️ Xem bản đồ Radar mây mưa trực tiếp?"
+"""
     try:
         res = client.chat.completions.create(
             model=MODEL,
@@ -445,7 +462,7 @@ def generate_general_chat(user_question):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_question}
             ],
-            temperature=0.7
+            temperature=0.5
         )
         return res.choices[0].message.content.strip()
     except Exception as e:
@@ -533,77 +550,12 @@ elif active_menu == "⚠️ Cảnh báo dông bão":
         else:
             st.markdown(f'<div class="safe-box">📍 **Khu vực {data_alert["name"]}**: Hiện không ghi nhận cảnh báo dông bão hay mưa lớn cực đoan trong những ngày tới.</div>', unsafe_allow_html=True)
 
-# TAB 3: DỰ BÁO, PHÂN TÍCH & TRÒ CHUYỆN (HIỂN THỊ CẢ LỊCH SỬ CHAT)
+# TAB 3: DỰ BÁO, PHÂN TÍCH & TRÒ CHUYỆN (LUỒNG CHAT TỰ NHIÊN - CŨ TRÊN, MỚI DƯỚI)
 else:
     st.markdown('<div class="hero-title">WeatherAI(Demo)</div>', unsafe_allow_html=True)
 
-    col_input, col_btn = st.columns([5, 1])
-    with col_input:
-        user_q = st.text_input(
-            "Nhập địa điểm / câu hỏi:",
-            value="",
-            placeholder="Hỏi WeatherAI...",
-            label_visibility="collapsed"
-        )
-    with col_btn:
-        submit_btn = st.button("Gửi 🚀", use_container_width=True)
-
-    # Xử lý khi bấm nút Gửi
-    if submit_btn and user_q.strip():
-        query_text = user_q.strip()
-        intent_type, loc_target, target_hours = parse_user_intent(query_text)
-
-        # 1. TRÒ CHUYỆN TÁN GẪU
-        if intent_type == "CHAT":
-            chat_reply = generate_general_chat(query_text)
-            st.session_state.chat_history.append({
-                "type": "CHAT",
-                "question": query_text,
-                "reply": chat_reply
-            })
-
-        # 2. TRA CỨU BÃI / SIÊU BẢO
-        elif intent_type == "STORM":
-            storm_lat, storm_lon = 18.0, 115.0
-            data, _ = fetch_weather_by_coords(storm_lat, storm_lon)
-            report = generate_ai_report(query_text, loc_target, data["df"], target_hours)
-            st.session_state.chat_history.append({
-                "type": "STORM",
-                "question": query_text,
-                "location": loc_target,
-                "report": report,
-                "storm_lat": storm_lat,
-                "storm_lon": storm_lon
-            })
-
-        # 3. TRA CỨU DỰ BÁO THỜI TIẾT TỰ ĐỘNG
-        else:
-            if loc_target == "USE_GPS" and user_gps and "coords" in user_gps:
-                lat = user_gps["coords"]["latitude"]
-                lon = user_gps["coords"]["longitude"]
-                data, err = fetch_weather_by_coords(lat, lon)
-            else:
-                target_place = loc_target if loc_target != "USE_GPS" else "Ho Chi Minh"
-                data, err = fetch_weather_data(target_place)
-
-            if not err and data:
-                df = data["df"]
-                loc_name = data["name"]
-                num_rows = max(1, target_hours // 3)
-                df_filtered = df.head(num_rows)
-                report = generate_ai_report(query_text, loc_name, df_filtered, target_hours)
-
-                st.session_state.chat_history.append({
-                    "type": "WEATHER",
-                    "question": query_text,
-                    "data": data,
-                    "df_filtered": df_filtered,
-                    "target_hours": target_hours,
-                    "report": report
-                })
-
-    # HIỂN THỊ TOÀN BỘ LỊCH SỬ TRÒ CHUYỆN ĐÃ LƯU
-    for idx, chat in enumerate(reversed(st.session_state.chat_history)):
+    # 1. HIỂN THỊ CÁC TIN NHẮN TRONG LỊCH SỬ THEO THỨ TỰ THỜI GIAN (TỪ CŨ ĐẾN MỚI)
+    for idx, chat in enumerate(st.session_state.chat_history):
         st.markdown(f'<div class="user-msg-card"><b>🗣️ Bạn:</b> {chat["question"]}</div>', unsafe_allow_html=True)
 
         if chat["type"] == "CHAT":
@@ -683,3 +635,73 @@ else:
             
             st.plotly_chart(fig, use_container_width=True, key=f"fig_{idx}", config={'displayModeBar': False})
             st.markdown(f'<div class="ai-card"><b>🤖 Phân tích AI:</b><br>{chat["report"]}</div>', unsafe_allow_html=True)
+
+    # 2. Ô NHẬP LIỆU ĐẶT Ở DƯỚI CÙNG TRANG
+    st.write("---")
+    col_input, col_btn = st.columns([5, 1])
+    with col_input:
+        user_q = st.text_input(
+            "Nhập địa điểm / câu hỏi:",
+            value="",
+            placeholder="Hỏi WeatherAI...",
+            label_visibility="collapsed"
+        )
+    with col_btn:
+        submit_btn = st.button("Gửi 🚀", use_container_width=True)
+
+    # 3. XỬ LÝ KHI BẤM NÚT GỬI & LƯU VÀO CUỐI MẢNG CHAT
+    if submit_btn and user_q.strip():
+        query_text = user_q.strip()
+        intent_type, loc_target, target_hours = parse_user_intent(query_text)
+
+        # 1. TRÒ CHUYỆN TÁN GẪU
+        if intent_type == "CHAT":
+            chat_reply = generate_general_chat(query_text)
+            st.session_state.chat_history.append({
+                "type": "CHAT",
+                "question": query_text,
+                "reply": chat_reply
+            })
+
+        # 2. TRA CỨU BÃI / SIÊU BẢO
+        elif intent_type == "STORM":
+            storm_lat, storm_lon = 18.0, 115.0
+            data, _ = fetch_weather_by_coords(storm_lat, storm_lon)
+            report = generate_ai_report(query_text, loc_target, data["df"], target_hours)
+            st.session_state.chat_history.append({
+                "type": "STORM",
+                "question": query_text,
+                "location": loc_target,
+                "report": report,
+                "storm_lat": storm_lat,
+                "storm_lon": storm_lon
+            })
+
+        # 3. TRA CỨU DỰ BÁO THỜI TIẾT TỰ ĐỘNG
+        else:
+            if loc_target == "USE_GPS" and user_gps and "coords" in user_gps:
+                lat = user_gps["coords"]["latitude"]
+                lon = user_gps["coords"]["longitude"]
+                data, err = fetch_weather_by_coords(lat, lon)
+            else:
+                target_place = loc_target if loc_target != "USE_GPS" else "Ho Chi Minh"
+                data, err = fetch_weather_data(target_place)
+
+            if not err and data:
+                df = data["df"]
+                loc_name = data["name"]
+                num_rows = max(1, target_hours // 3)
+                df_filtered = df.head(num_rows)
+                report = generate_ai_report(query_text, loc_name, df_filtered, target_hours)
+
+                st.session_state.chat_history.append({
+                    "type": "WEATHER",
+                    "question": query_text,
+                    "data": data,
+                    "df_filtered": df_filtered,
+                    "target_hours": target_hours,
+                    "report": report
+                })
+
+        # Tải lại trang để cập nhật nội dung tin nhắn mới xếp ở dưới cùng
+        st.rerun()
