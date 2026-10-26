@@ -1,5 +1,6 @@
 import os
 import json
+import unicodedata
 from datetime import datetime, timezone, timedelta
 import requests
 import pandas as pd
@@ -24,7 +25,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Kiểm tra trạng thái Đăng nhập Google
+# Kiểm tra trạng thái Đăng nhập Google (Chuẩn st.user)
 if not st.user.is_logged_in:
     st.markdown("""
         <div style="text-align: center; padding: 60px 20px;">
@@ -61,7 +62,7 @@ client = OpenAI(
 )
 MODEL = "gpt-4o"
 
-# Key LocalStorage quản lý danh sách đoạn chat theo Email người dùng
+# Key LocalStorage phân tách riêng theo Email người dùng
 USER_STORAGE_KEY = f"weatherai_pro_threads_{user_email.replace('@', '_at_').replace('.', '_')}"
 
 # ==========================================
@@ -140,7 +141,7 @@ except Exception:
     user_gps = None
 
 # ==========================================
-# 3. SIDEBAR NAVIGATION (DANH SÁCH CHAT GEMINI)
+# 3. SIDEBAR NAVIGATION (DẠNG GEMINI)
 # ==========================================
 with st.sidebar:
     st.markdown("""
@@ -349,8 +350,12 @@ if is_dark:
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 5. HÀM XỬ LÝ DỮ LIỆU & AI (SỬA LỖI ĐỒNG NAI)
+# 5. HÀM XỬ LÝ DỮ LIỆU & AI
 # ==========================================
+def remove_accents(input_str):
+    nfkd_form = unicodedata.normalize('NFKD', input_str)
+    return "".join([c for c in nfkd_form if not unicodedata.combining(c)])
+
 def parse_user_intent(user_question):
     prompt = f"""
 Phân tích câu hỏi người dùng và trả về định dạng JSON/Text ngắn gọn:
@@ -384,11 +389,9 @@ def fetch_weather_by_coords(lat, lon, fallback_name=None):
         try:
             geo_detail_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lon}&localityLanguage=vi"
             res_geo = requests.get(geo_detail_url, timeout=5).json()
-            
             city = res_geo.get("city", "") or res_geo.get("principalSubdivision", "")
             locality = res_geo.get("locality", "")
             
-            # Ưu tiên hiển thị Tỉnh / Thành phố lớn thay vì gán tên Xã
             if city:
                 if locality and locality.lower() != city.lower() and not locality.lower().startswith("xã"):
                     display_name = f"{locality}, {city}"
@@ -429,12 +432,22 @@ def fetch_weather_by_coords(lat, lon, fallback_name=None):
 
 def fetch_weather_data(location_name):
     query_name = location_name.strip()
-    custom_display_name = None
-
-    # Sửa chuẩn tên Tỉnh Đồng Nai khi người dùng nhập "đồng nai"
-    if query_name.lower() in ["đồng nai", "dong nai"]:
+    custom_display_name = query_name.title()
+    clean_query = remove_accents(query_name).lower()
+    
+    # Chuẩn hóa tên các tỉnh/thành tiếng Việt
+    if "da nang" in clean_query:
+        query_name = "Da Nang, VN"
+        custom_display_name = "Thành phố Đà Nẵng"
+    elif "dong nai" in clean_query:
         query_name = "Bien Hoa, Dong Nai, VN"
         custom_display_name = "Tỉnh Đồng Nai"
+    elif "ho chi minh" in clean_query or "sai gon" in clean_query:
+        query_name = "Ho Chi Minh, VN"
+        custom_display_name = "TP. Hồ Chí Minh"
+    elif "ha noi" in clean_query:
+        query_name = "Hanoi, VN"
+        custom_display_name = "Thủ đô Hà Nội"
 
     def safe_get_geo(query):
         url = f"http://api.openweathermap.org/geo/1.0/direct?q={query}&limit=1&appid={WEATHER_KEY}"
@@ -449,8 +462,8 @@ def fetch_weather_data(location_name):
         return None
 
     geo_data = safe_get_geo(query_name)
-    if not geo_data and "," not in query_name:
-        geo_data = safe_get_geo(f"{query_name},VN")
+    if not geo_data:
+        geo_data = safe_get_geo(remove_accents(query_name) + ",VN")
 
     if not geo_data:
         geo_data = safe_get_geo("Ho Chi Minh,VN")
@@ -476,17 +489,34 @@ def generate_general_chat(user_question):
 
 
 def generate_ai_report(user_question, location_name, df_weather, target_hours):
+    gio_viet_nam = timezone(timedelta(hours=7))
+    today_str = datetime.now(gio_viet_nam).strftime("%d/%m/%Y %H:%M:%S")
     weather_summary = df_weather.to_string(index=False) if df_weather is not None else ""
-    system_prompt = f"Bạn là WeatherAI Intelligence Pro. Phân tích thời tiết tại '{location_name}' cho {target_hours} giờ tới:\n{weather_summary}"
+
+    system_prompt = f"""
+Bạn là WeatherAI Intelligence Pro - Trợ lý Khí tượng AI cao cấp.
+Thời gian hệ thống hiện tại: {today_str}.
+
+Dưới đây là BẢNG DỮ LIỆU KHÍ TƯỢNG DỰ BÁO TRỰC TIẾP TỪ VỆ TINH (OPENWEATHERMAP API) trong {target_hours} giờ tới tại '{location_name}':
+{weather_summary}
+
+QUY TẮC PHẢN HỒI NGHÊM NGẶT:
+1. Dữ liệu trên là DỮ LIỆU THỜI GIAN THỰC ĐƯỢC CẤP TỪ HỆ THỐNG RADAR/API. Tuyệt đối KHÔNG ĐƯỢC nói "dữ liệu chỉ cập nhật đến 2023" hay từ chối cung cấp thông tin.
+2. Hãy phân tích ngắn gọn, chính xác xu hướng nhiệt độ, khả năng có mưa, độ ẩm và đưa ra lời khuyên phù hợp cho người dùng dựa trên đúng bảng dữ liệu được cung cấp ở trên.
+3. Trả lời trực tiếp câu hỏi: "{user_question}".
+"""
     try:
         res = client.chat.completions.create(
             model=MODEL,
-            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_question}],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_question}
+            ],
             temperature=0.3
         )
         return res.choices[0].message.content.strip()
     except Exception as e:
-        return f"⚠️ Lỗi phân tích AI: {str(e)}"
+        return f"⚠️ Không thể khởi tạo phân tích AI: {str(e)}"
 
 # ==========================================
 # 6. ĐIỀU HƯỚNG MÀN HÌNH CHÍNH
@@ -552,7 +582,7 @@ else:
             st.plotly_chart(fig, use_container_width=True, key=f"fig_{idx}", config={'displayModeBar': False})
             st.markdown(f'<div class="ai-card"><b>🤖 Phân tích WeatherAI:</b><br>{chat["report"]}</div>', unsafe_allow_html=True)
 
-    # Ô nhập liệu chat (Enter để gửi & xóa chữ)
+    # Ô nhập liệu chat (Enter để gửi & tự động xóa ô text)
     st.write("---")
     with st.form(key="chat_form", clear_on_submit=True):
         col_input, col_btn = st.columns([5, 1])
