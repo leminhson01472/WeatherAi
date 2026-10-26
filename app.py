@@ -1,4 +1,6 @@
 import os
+import json
+import uuid
 from datetime import datetime, timezone, timedelta
 import requests
 import pandas as pd
@@ -34,9 +36,32 @@ client = OpenAI(
 )
 MODEL = "gpt-4o"
 
-# KHO LƯU LỊCH SỬ TRÒ CHUYỆN TRONG SESSION STATE
+# ==========================================
+# CƠ CHẾ QUYỀN RIÊNG TƯ: LƯU TỰ ĐỘNG THEO SESSION USER
+# ==========================================
+if "user_session_id" not in st.session_state:
+    st.session_state.user_session_id = str(uuid.uuid4())
+
+SESSION_FILE = f"chat_{st.session_state.user_session_id}.json"
+
+def load_user_chat():
+    if os.path.exists(SESSION_FILE):
+        try:
+            with open(SESSION_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def save_user_chat(history):
+    try:
+        with open(SESSION_FILE, "w", encoding="utf-8") as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+    st.session_state.chat_history = load_user_chat()
 
 # Import an toàn bộ lấy vị trí GPS
 try:
@@ -46,7 +71,7 @@ except Exception:
     user_gps = None
 
 # ==========================================
-# 2. SIDEBAR NAVIGATION & THEME SWITCHER
+# 2. SIDEBAR NAVIGATION & TÙY CHỌN RIÊNG TƯ
 # ==========================================
 with st.sidebar:
     st.markdown("### ⚡ WeatherAI Pro")
@@ -60,7 +85,6 @@ with st.sidebar:
 
     st.write("---")
     
-    # Menu danh mục chức năng
     active_menu = st.radio(
         "📌 Danh mục chức năng:",
         [
@@ -72,10 +96,24 @@ with st.sidebar:
     )
     
     st.write("---")
+    st.markdown("#### 🔒 Lịch sử riêng tư")
     
-    # Nút xóa lịch sử trò chuyện
-    if st.button("🗑️ Xóa lịch sử trò chuyện", use_container_width=True):
+    # Nút Xuất file lịch sử riêng
+    if st.session_state.chat_history:
+        chat_json_str = json.dumps(st.session_state.chat_history, ensure_ascii=False, indent=2)
+        st.download_button(
+            label="📥 Tải nhật ký chat cá nhân (.json)",
+            data=chat_json_str,
+            file_name=f"my_weather_chat_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            mime="application/json",
+            use_container_width=True
+        )
+
+    # Nút Xóa lịch sử riêng tư
+    if st.button("🗑️ Xóa lịch sử phiên này", use_container_width=True):
         st.session_state.chat_history = []
+        if os.path.exists(SESSION_FILE):
+            os.remove(SESSION_FILE)
         st.rerun()
 
     st.write("---")
@@ -404,7 +442,7 @@ def fetch_weather_by_coords(lat, lon):
         })
 
     df = pd.DataFrame(records)
-    return {"name": display_name, "df": df, "lat": lat, "lon": lon}, None
+    return {"name": display_name, "records": df.to_dict(orient="records"), "lat": lat, "lon": lon}, None
 
 
 def fetch_weather_data(location_name):
@@ -531,7 +569,7 @@ elif active_menu == "⚠️ Cảnh báo dông bão":
         data_alert, err = fetch_weather_data("Ho Chi Minh")
 
     if data_alert:
-        df_a = data_alert["df"]
+        df_a = pd.DataFrame(data_alert["records"])
         max_rain = df_a["Mưa (mm)"].max()
         thunder_times = df_a[df_a["Mô tả"].str.contains("dông|bão|sấm|mưa to|mưa rất to", case=False, na=False)]["Thời gian"].tolist()
         curr_temp = df_a.iloc[0]["Nhiệt độ (°C)"]
@@ -550,11 +588,11 @@ elif active_menu == "⚠️ Cảnh báo dông bão":
         else:
             st.markdown(f'<div class="safe-box">📍 **Khu vực {data_alert["name"]}**: Hiện không ghi nhận cảnh báo dông bão hay mưa lớn cực đoan trong những ngày tới.</div>', unsafe_allow_html=True)
 
-# TAB 3: DỰ BÁO, PHÂN TÍCH & TRÒ CHUYỆN (LUỒNG CHAT TỰ NHIÊN - CŨ TRÊN, MỚI DƯỚI)
+# TAB 3: DỰ BÁO, PHÂN TÍCH & TRÒ CHUYỆN (LUỒNG CHAT TỰ NHIÊN)
 else:
     st.markdown('<div class="hero-title">WeatherAI(Demo)</div>', unsafe_allow_html=True)
 
-    # 1. HIỂN THỊ CÁC TIN NHẮN TRONG LỊCH SỬ THEO THỨ TỰ THỜI GIAN (TỪ CŨ ĐẾN MỚI)
+    # 1. HIỂN THỊ CÁC TIN NHẮN TRONG LỊCH SỬ CỦA USER NÀY (TỪ CŨ ĐẾN MỚI)
     for idx, chat in enumerate(st.session_state.chat_history):
         st.markdown(f'<div class="user-msg-card"><b>🗣️ Bạn:</b> {chat["question"]}</div>', unsafe_allow_html=True)
 
@@ -568,8 +606,9 @@ else:
 
         elif chat["type"] == "WEATHER":
             data = chat["data"]
-            df_filtered = chat["df_filtered"]
-            target_hours = chat["target_hours"]
+            df_full = pd.DataFrame(data["records"])
+            num_rows = max(1, chat["target_hours"] // 3)
+            df_filtered = df_full.head(num_rows)
             loc_name = data["name"]
 
             highlight_color = "#00C2FF" if is_dark else "#10A37F"
@@ -588,10 +627,10 @@ else:
             """, unsafe_allow_html=True)
 
             c1, c2, c3, c4 = st.columns(4)
-            curr_temp = data["df"].iloc[0]["Nhiệt độ (°C)"]
-            curr_feel = data["df"].iloc[0]["Cảm giác (°C)"]
-            curr_hum = data["df"].iloc[0]["Độ ẩm (%)"]
-            total_rain_24h = data["df"].head(8)["Mưa (mm)"].sum()
+            curr_temp = df_full.iloc[0]["Nhiệt độ (°C)"]
+            curr_feel = df_full.iloc[0]["Cảm giác (°C)"]
+            curr_hum = df_full.iloc[0]["Độ ẩm (%)"]
+            total_rain_24h = df_full.head(8)["Mưa (mm)"].sum()
 
             with c1:
                 st.markdown('<div class="telemetry-card"><div class="telemetry-label">ĐỘ CHÍNH XÁC</div><div class="telemetry-value">96.8%</div><div class="telemetry-sub">RMS: 0.42°C</div></div>', unsafe_allow_html=True)
@@ -649,7 +688,7 @@ else:
     with col_btn:
         submit_btn = st.button("Gửi 🚀", use_container_width=True)
 
-    # 3. XỬ LÝ KHI BẤM NÚT GỬI & LƯU VÀO CUỐI MẢNG CHAT
+    # 3. XỬ LÝ KHI BẤM NÚT GỬI & LƯU TƯƠNG ỨNG SESSION USER
     if submit_btn and user_q.strip():
         query_text = user_q.strip()
         intent_type, loc_target, target_hours = parse_user_intent(query_text)
@@ -667,7 +706,7 @@ else:
         elif intent_type == "STORM":
             storm_lat, storm_lon = 18.0, 115.0
             data, _ = fetch_weather_by_coords(storm_lat, storm_lon)
-            report = generate_ai_report(query_text, loc_target, data["df"], target_hours)
+            report = generate_ai_report(query_text, loc_target, pd.DataFrame(data["records"]), target_hours)
             st.session_state.chat_history.append({
                 "type": "STORM",
                 "question": query_text,
@@ -688,7 +727,7 @@ else:
                 data, err = fetch_weather_data(target_place)
 
             if not err and data:
-                df = data["df"]
+                df = pd.DataFrame(data["records"])
                 loc_name = data["name"]
                 num_rows = max(1, target_hours // 3)
                 df_filtered = df.head(num_rows)
@@ -698,10 +737,10 @@ else:
                     "type": "WEATHER",
                     "question": query_text,
                     "data": data,
-                    "df_filtered": df_filtered,
                     "target_hours": target_hours,
                     "report": report
                 })
 
-        # Tải lại trang để cập nhật nội dung tin nhắn mới xếp ở dưới cùng
+        # Lưu lại lịch sử riêng cho session ID hiện tại
+        save_user_chat(st.session_state.chat_history)
         st.rerun()
