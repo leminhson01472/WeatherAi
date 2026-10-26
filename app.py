@@ -61,20 +61,18 @@ client = OpenAI(
 )
 MODEL = "gpt-4o"
 
-# Key LocalStorage quản lý danh sách đoạn chat theo Email
+# Key LocalStorage quản lý danh sách đoạn chat theo Email người dùng
 USER_STORAGE_KEY = f"weatherai_pro_threads_{user_email.replace('@', '_at_').replace('.', '_')}"
 
 # ==========================================
-# 2. ĐỒNG BỘ LOCALSTORAGE CÁC PHIÊN TRÒ CHUYỆN (SESSIONS)
+# 2. ĐỒNG BỘ LOCALSTORAGE CÁC PHIÊN TRÒ CHUYỆN (THREADS)
 # ==========================================
-# Cấu trúc threads_store: { "session_id_1": {"title": "Thời tiết TP.HCM", "created_at": "...", "chats": [...]}, ... }
 if "threads_store" not in st.session_state:
     st.session_state.threads_store = {}
 
 if "active_thread_id" not in st.session_state:
     st.session_state.active_thread_id = None
 
-# Đọc dữ liệu các đoạn chat từ Web LocalStorage
 local_storage_js = f"""
 <script>
     const STORAGE_KEY = '{USER_STORAGE_KEY}';
@@ -105,21 +103,9 @@ if web_storage_data and isinstance(web_storage_data, str) and not st.session_sta
         if isinstance(loaded_threads, dict):
             st.session_state.threads_store = loaded_threads
             if loaded_threads and not st.session_state.active_thread_id:
-                # Mặc định chọn phiên trò chuyện mới nhất
                 st.session_state.active_thread_id = list(loaded_threads.keys())[-1]
     except Exception:
         pass
-
-# Tạo một đoạn chat mới nếu chưa có phiên nào
-def create_new_thread():
-    new_id = f"chat_{int(datetime.now().timestamp() * 1000)}"
-    st.session_state.threads_store[new_id] = {
-        "title": "Cuộc trò chuyện mới",
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "chats": []
-    }
-    st.session_state.active_thread_id = new_id
-    save_threads_to_web()
 
 def save_threads_to_web():
     updated_json = json.dumps(st.session_state.threads_store, ensure_ascii=False)
@@ -129,6 +115,16 @@ def save_threads_to_web():
     </script>
     """
     components.html(save_js, height=0)
+
+def create_new_thread():
+    new_id = f"chat_{int(datetime.now().timestamp() * 1000)}"
+    st.session_state.threads_store[new_id] = {
+        "title": "Cuộc trò chuyện mới",
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "chats": []
+    }
+    st.session_state.active_thread_id = new_id
+    save_threads_to_web()
 
 if not st.session_state.threads_store:
     create_new_thread()
@@ -144,7 +140,7 @@ except Exception:
     user_gps = None
 
 # ==========================================
-# 3. SIDEBAR NAVIGATION (GIỐNG GEMINI)
+# 3. SIDEBAR NAVIGATION (DANH SÁCH CHAT GEMINI)
 # ==========================================
 with st.sidebar:
     st.markdown("""
@@ -158,17 +154,14 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
 
-    # Nút Tạo cuộc trò chuyện mới
     if st.button("➕ Cuộc trò chuyện mới", use_container_width=True, type="primary"):
         create_new_thread()
         st.rerun()
 
     st.write("---")
     
-    # DANH SÁCH CÁC ĐOẠN CHAT (GIỐNG GEMINI SIDEBAR)
     st.markdown("<div style='font-size: 12px; font-weight: 700; color: #94A3B8; text-transform: uppercase; margin-bottom: 8px;'>Tất cả cuộc trò chuyện</div>", unsafe_allow_html=True)
     
-    # Duyệt danh sách các thread đảo ngược (mới nhất lên trên)
     sorted_thread_ids = list(st.session_state.threads_store.keys())[::-1]
     
     for tid in sorted_thread_ids:
@@ -176,13 +169,17 @@ with st.sidebar:
         title = thread_info.get("title", "Cuộc trò chuyện mới")
         is_selected = (tid == st.session_state.active_thread_id)
         
-        # Rút ngắn tiêu đề nếu quá dài
         display_title = (title[:22] + '...') if len(title) > 22 else title
-        
         btn_label = f"💬 {display_title}" if not is_selected else f"🔹 {display_title}"
+        
         if st.button(btn_label, key=f"btn_thread_{tid}", use_container_width=True):
             st.session_state.active_thread_id = tid
             st.rerun()
+
+    st.write("---")
+
+    theme_choice = st.radio("🎨 Chế độ giao diện:", ["☀️ Light Mode", "🌙 Dark Glass Mode"], index=1)
+    is_dark = "Dark" in theme_choice
 
     st.write("---")
 
@@ -198,7 +195,6 @@ with st.sidebar:
     
     st.write("---")
     
-    # Thông tin tài khoản & Nút xóa
     st.markdown(f"""
         <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); padding: 10px; border-radius: 10px; margin-bottom: 10px;">
             <div style="font-size: 12px; font-weight: 700; color: #F8FAFC !important;">👤 {user_name}</div>
@@ -208,7 +204,7 @@ with st.sidebar:
 
     col_s1, col_s2 = st.columns(2)
     with col_s1:
-        if st.button("🗑️ Xóa đoạn chat này", use_container_width=True):
+        if st.button("🗑️ Xóa đoạn chat", use_container_width=True):
             if st.session_state.active_thread_id in st.session_state.threads_store:
                 del st.session_state.threads_store[st.session_state.active_thread_id]
                 save_threads_to_web()
@@ -224,135 +220,136 @@ with st.sidebar:
 # ==========================================
 # 4. DYNAMIC CSS STYLES (DARK GLASS)
 # ==========================================
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+if is_dark:
+    st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
 
-    .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 2rem !important;
-    }
+        .block-container {
+            padding-top: 2rem !important;
+            padding-bottom: 2rem !important;
+        }
 
-    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-        background-color: #0A1327 !important;
-        color: #F8FAFC !important;
-        font-family: 'Inter', sans-serif;
-    }
+        html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+            background-color: #0A1327 !important;
+            color: #F8FAFC !important;
+            font-family: 'Inter', sans-serif;
+        }
 
-    #MainMenu, footer {visibility: hidden;}
+        #MainMenu, footer {visibility: hidden;}
 
-    [data-testid="stSidebar"] {
-        background-color: rgba(5, 14, 33, 0.9) !important;
-        backdrop-filter: blur(20px) !important;
-        border-right: 1px solid rgba(56, 189, 248, 0.15) !important;
-    }
+        [data-testid="stSidebar"] {
+            background-color: rgba(5, 14, 33, 0.9) !important;
+            backdrop-filter: blur(20px) !important;
+            border-right: 1px solid rgba(56, 189, 248, 0.15) !important;
+        }
 
-    [data-testid="stSidebar"] *, 
-    [data-testid="stSidebar"] label, 
-    [data-testid="stSidebar"] p, 
-    [data-testid="stSidebar"] span, 
-    [data-testid="stSidebar"] div {
-        color: #F8FAFC !important;
-    }
+        [data-testid="stSidebar"] *, 
+        [data-testid="stSidebar"] label, 
+        [data-testid="stSidebar"] p, 
+        [data-testid="stSidebar"] span, 
+        [data-testid="stSidebar"] div {
+            color: #F8FAFC !important;
+        }
 
-    .stTextInput > div > div > input {
-        background-color: rgba(18, 27, 47, 0.85) !important;
-        border: 1px solid rgba(56, 189, 248, 0.3) !important;
-        color: #FFFFFF !important;
-        border-radius: 9999px !important;
-        padding: 12px 24px !important;
-        font-size: 14px !important;
-    }
+        .stTextInput > div > div > input {
+            background-color: rgba(18, 27, 47, 0.85) !important;
+            border: 1px solid rgba(56, 189, 248, 0.3) !important;
+            color: #FFFFFF !important;
+            border-radius: 9999px !important;
+            padding: 12px 24px !important;
+            font-size: 14px !important;
+        }
 
-    .stTextInput > div > div > input::placeholder {
-        color: #94A3B8 !important;
-    }
+        .stTextInput > div > div > input::placeholder {
+            color: #94A3B8 !important;
+        }
 
-    .stButton > button, [data-testid="stFormSubmitButton"] > button {
-        background: linear-gradient(135deg, #00C2FF 0%, #0284C7 100%) !important;
-        color: #0A1327 !important;
-        font-weight: 700 !important;
-        border: none !important;
-        border-radius: 9999px !important;
-        padding: 8px 20px !important;
-    }
+        .stButton > button, [data-testid="stFormSubmitButton"] > button {
+            background: linear-gradient(135deg, #00C2FF 0%, #0284C7 100%) !important;
+            color: #0A1327 !important;
+            font-weight: 700 !important;
+            border: none !important;
+            border-radius: 9999px !important;
+            padding: 8px 20px !important;
+        }
 
-    .hero-title {
-        text-align: center;
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        font-size: 28px;
-        font-weight: 800;
-        color: #F8FAFC;
-        margin-bottom: 20px;
-    }
+        .hero-title {
+            text-align: center;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 28px;
+            font-weight: 800;
+            color: #F8FAFC;
+            margin-bottom: 20px;
+        }
 
-    .telemetry-card {
-        background: rgba(24, 35, 60, 0.75);
-        backdrop-filter: blur(16px);
-        border: 1px solid rgba(56, 189, 248, 0.18);
-        border-radius: 16px;
-        padding: 16px;
-    }
-    .telemetry-label {
-        font-size: 11px;
-        font-weight: 700;
-        color: #94A3B8 !important;
-        text-transform: uppercase;
-    }
-    .telemetry-value {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        font-size: 24px;
-        font-weight: 700;
-        color: #F8FAFC !important;
-        margin: 4px 0;
-    }
-    .telemetry-sub {
-        font-size: 12px;
-        color: #38BDF8 !important;
-    }
+        .telemetry-card {
+            background: rgba(24, 35, 60, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.18);
+            border-radius: 16px;
+            padding: 16px;
+        }
+        .telemetry-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #94A3B8 !important;
+            text-transform: uppercase;
+        }
+        .telemetry-value {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: #F8FAFC !important;
+            margin: 4px 0;
+        }
+        .telemetry-sub {
+            font-size: 12px;
+            color: #38BDF8 !important;
+        }
 
-    .user-msg-card {
-        background: rgba(56, 189, 248, 0.15);
-        border: 1px solid rgba(56, 189, 248, 0.3);
-        border-radius: 16px;
-        padding: 14px 18px;
-        margin-top: 15px;
-        color: #F8FAFC !important;
-    }
+        .user-msg-card {
+            background: rgba(56, 189, 248, 0.15);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 16px;
+            padding: 14px 18px;
+            margin-top: 15px;
+            color: #F8FAFC !important;
+        }
 
-    .ai-card {
-        background: rgba(18, 27, 47, 0.85);
-        border: 1px solid rgba(0, 194, 255, 0.35);
-        border-left: 4px solid #00C2FF;
-        border-radius: 16px;
-        padding: 18px;
-        margin-top: 10px;
-        margin-bottom: 20px;
-        line-height: 1.6;
-        color: #F8FAFC !important;
-    }
-    
-    .alert-box {
-        background: rgba(239, 68, 68, 0.2);
-        border: 1px solid rgba(239, 68, 68, 0.4);
-        border-left: 4px solid #EF4444;
-        border-radius: 16px;
-        padding: 18px;
-        color: #F8FAFC !important;
-    }
-    .safe-box {
-        background: rgba(16, 185, 129, 0.15);
-        border: 1px solid rgba(16, 185, 129, 0.4);
-        border-left: 4px solid #10B981;
-        border-radius: 16px;
-        padding: 18px;
-        color: #F8FAFC !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
+        .ai-card {
+            background: rgba(18, 27, 47, 0.85);
+            border: 1px solid rgba(0, 194, 255, 0.35);
+            border-left: 4px solid #00C2FF;
+            border-radius: 16px;
+            padding: 18px;
+            margin-top: 10px;
+            margin-bottom: 20px;
+            line-height: 1.6;
+            color: #F8FAFC !important;
+        }
+        
+        .alert-box {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            border-left: 4px solid #EF4444;
+            border-radius: 16px;
+            padding: 18px;
+            color: #F8FAFC !important;
+        }
+        .safe-box {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-left: 4px solid #10B981;
+            border-radius: 16px;
+            padding: 18px;
+            color: #F8FAFC !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
 # ==========================================
-# 5. HÀM XỬ LÝ DỮ LIỆU & AI
+# 5. HÀM XỬ LÝ DỮ LIỆU & AI (SỬA LỖI ĐỒNG NAI)
 # ==========================================
 def parse_user_intent(user_question):
     prompt = f"""
@@ -380,22 +377,30 @@ Câu hỏi: {user_question}
         return "WEATHER", "USE_GPS", 120
 
 
-def fetch_weather_by_coords(lat, lon):
-    display_name = None
-    try:
-        geo_detail_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lon}&localityLanguage=vi"
-        res_geo = requests.get(geo_detail_url, timeout=5).json()
-        locality = res_geo.get("locality", "")
-        city = res_geo.get("city", "") or res_geo.get("principalSubdivision", "")
-        if locality and city:
-            display_name = f"{locality}, {city}"
-        elif locality:
-            display_name = locality
-    except Exception:
-        pass
+def fetch_weather_by_coords(lat, lon, fallback_name=None):
+    display_name = fallback_name
+    
+    if not display_name:
+        try:
+            geo_detail_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lon}&localityLanguage=vi"
+            res_geo = requests.get(geo_detail_url, timeout=5).json()
+            
+            city = res_geo.get("city", "") or res_geo.get("principalSubdivision", "")
+            locality = res_geo.get("locality", "")
+            
+            # Ưu tiên hiển thị Tỉnh / Thành phố lớn thay vì gán tên Xã
+            if city:
+                if locality and locality.lower() != city.lower() and not locality.lower().startswith("xã"):
+                    display_name = f"{locality}, {city}"
+                else:
+                    display_name = city if city.startswith(("Tỉnh", "Thành phố", "TP.")) else f"Tỉnh {city}"
+            elif locality:
+                display_name = locality
+        except Exception:
+            pass
 
     if not display_name:
-        display_name = "Vị trí GPS của bạn"
+        display_name = "Vị trí tra cứu"
 
     forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={WEATHER_KEY}&units=metric&lang=vi"
     try:
@@ -423,17 +428,38 @@ def fetch_weather_by_coords(lat, lon):
 
 
 def fetch_weather_data(location_name):
-    url = f"http://api.openweathermap.org/geo/1.0/direct?q={location_name}&limit=1&appid={WEATHER_KEY}"
-    try:
-        r = requests.get(url, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            if isinstance(data, list) and len(data) > 0:
-                lat, lon = data[0]['lat'], data[0]['lon']
-                return fetch_weather_by_coords(lat, lon)
-    except Exception:
-        pass
-    return fetch_weather_by_coords(10.8231, 106.6297)
+    query_name = location_name.strip()
+    custom_display_name = None
+
+    # Sửa chuẩn tên Tỉnh Đồng Nai khi người dùng nhập "đồng nai"
+    if query_name.lower() in ["đồng nai", "dong nai"]:
+        query_name = "Bien Hoa, Dong Nai, VN"
+        custom_display_name = "Tỉnh Đồng Nai"
+
+    def safe_get_geo(query):
+        url = f"http://api.openweathermap.org/geo/1.0/direct?q={query}&limit=1&appid={WEATHER_KEY}"
+        try:
+            r = requests.get(url, timeout=10)
+            if r.status_code == 200:
+                data = r.json()
+                if isinstance(data, list) and len(data) > 0:
+                    return data[0]
+        except Exception:
+            pass
+        return None
+
+    geo_data = safe_get_geo(query_name)
+    if not geo_data and "," not in query_name:
+        geo_data = safe_get_geo(f"{query_name},VN")
+
+    if not geo_data:
+        geo_data = safe_get_geo("Ho Chi Minh,VN")
+
+    if not geo_data or not isinstance(geo_data, dict) or 'lat' not in geo_data or 'lon' not in geo_data:
+        return None, f"Không thể tra cứu tọa độ cho địa điểm: '{location_name}'"
+
+    lat, lon = geo_data['lat'], geo_data['lon']
+    return fetch_weather_by_coords(lat, lon, fallback_name=custom_display_name)
 
 
 def generate_general_chat(user_question):
@@ -482,14 +508,12 @@ elif active_menu == "⚠️ Cảnh báo dông bão":
         st.markdown(f'<div class="safe-box">📍 **Khu vực {data_alert["name"]}**: Hiện không ghi nhận cảnh báo dông bão nguy hiểm trong 24h tới.</div>', unsafe_allow_html=True)
 
 else:
-    # Lấy thread hiện tại đang chọn
     active_tid = st.session_state.active_thread_id
     current_thread = st.session_state.threads_store.get(active_tid, {"chats": [], "title": "Cuộc trò chuyện mới"})
     current_chats = current_thread.get("chats", [])
 
     st.markdown(f'<div class="hero-title">{current_thread.get("title", "WeatherAI Pro")}</div>', unsafe_allow_html=True)
 
-    # Hiển thị lịch sử chat của phiên hiện tại
     for idx, chat in enumerate(current_chats):
         st.markdown(f'<div class="user-msg-card"><b>🗣️ Bạn:</b> {chat["question"]}</div>', unsafe_allow_html=True)
 
@@ -515,9 +539,9 @@ else:
             fig.add_trace(go.Bar(x=df_filtered["Thời gian"], y=df_filtered["Mưa (mm)"], name="Lượng mưa (mm)", marker_color="rgba(56, 189, 248, 0.5)", yaxis="y2"))
             
             fig.update_layout(
-                template="plotly_dark",
+                template="plotly_dark" if is_dark else "plotly_white",
                 paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(10, 19, 39, 0.7)",
+                plot_bgcolor="rgba(10, 19, 39, 0.7)" if is_dark else "#FFFFFF",
                 margin=dict(l=20, r=20, t=30, b=20),
                 height=300,
                 xaxis=dict(showgrid=True, fixedrange=True),
@@ -528,7 +552,7 @@ else:
             st.plotly_chart(fig, use_container_width=True, key=f"fig_{idx}", config={'displayModeBar': False})
             st.markdown(f'<div class="ai-card"><b>🤖 Phân tích WeatherAI:</b><br>{chat["report"]}</div>', unsafe_allow_html=True)
 
-    # Ô nhập liệu chat (Form Submit với Enter)
+    # Ô nhập liệu chat (Enter để gửi & xóa chữ)
     st.write("---")
     with st.form(key="chat_form", clear_on_submit=True):
         col_input, col_btn = st.columns([5, 1])
@@ -568,7 +592,6 @@ else:
                 new_entry = {"type": "WEATHER", "question": query_text, "data": data, "target_hours": target_hours, "report": report}
 
         if new_entry:
-            # Nếu đây là câu hỏi đầu tiên của đoạn chat, đặt tiêu đề tự động theo câu hỏi
             if not current_chats:
                 current_thread["title"] = query_text[:25] + ("..." if len(query_text) > 25 else "")
 
@@ -576,7 +599,6 @@ else:
             current_thread["chats"] = current_chats
             st.session_state.threads_store[active_tid] = current_thread
             
-            # Lưu vĩnh viễn vào Web LocalStorage
             save_threads_to_web()
 
         st.rerun()
