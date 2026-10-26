@@ -137,7 +137,7 @@ except Exception:
     user_gps = None
 
 # ==========================================
-# 3. SIDEBAR NAVIGATION (HIỂN THỊ ĐẦY ĐỦ TIÊU ĐỀ)
+# 3. SIDEBAR NAVIGATION
 # ==========================================
 with st.sidebar:
     st.markdown("""
@@ -146,7 +146,7 @@ with st.sidebar:
                 ⚡
             </div>
             <div>
-                <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 17px; font-weight: 800; color: #F8FAFC !important;">WeatherAI Pro</div>
+                <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 17px; font-weight: 800; color: inherit;">WeatherAI Pro</div>
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -157,13 +157,12 @@ with st.sidebar:
 
     st.write("---")
     
-    st.markdown("<div style='font-size: 12px; font-weight: 700; color: #94A3B8; text-transform: uppercase; margin-bottom: 8px;'>Tất cả cuộc trò chuyện</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 8px;'>Tất cả cuộc trò chuyện</div>", unsafe_allow_html=True)
     
     sorted_thread_ids = list(st.session_state.threads_store.keys())[::-1]
     
     for tid in sorted_thread_ids:
         thread_info = st.session_state.threads_store[tid]
-        # HIỂN THỊ NGUYÊN BẢN FULL TIÊU ĐỀ KHÔNG RÚT GỌN
         full_title = thread_info.get("title", "Cuộc trò chuyện mới")
         is_selected = (tid == st.session_state.active_thread_id)
         
@@ -193,9 +192,9 @@ with st.sidebar:
     st.write("---")
     
     st.markdown(f"""
-        <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); padding: 10px; border-radius: 10px; margin-bottom: 10px;">
-            <div style="font-size: 12px; font-weight: 700; color: #F8FAFC !important;">👤 {user_name}</div>
-            <div style="font-size: 10px; color: #94A3B8 !important; overflow: hidden; text-overflow: ellipsis;">{user_email}</div>
+        <div style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(14, 165, 233, 0.2); padding: 10px; border-radius: 10px; margin-bottom: 10px;">
+            <div style="font-size: 12px; font-weight: 700; color: inherit;">👤 {user_name}</div>
+            <div style="font-size: 10px; color: #64748B; overflow: hidden; text-overflow: ellipsis;">{user_email}</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -215,17 +214,14 @@ with st.sidebar:
             st.logout()
 
 # ==========================================
-# 4. DYNAMIC CSS STYLES (DARK GLASS)
+# 4. DYNAMIC CSS STYLES (DARK & LIGHT HIGH-END)
 # ==========================================
 if is_dark:
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
 
-        .block-container {
-            padding-top: 2rem !important;
-            padding-bottom: 2rem !important;
-        }
+        .block-container { padding-top: 2rem !important; padding-bottom: 2rem !important; }
 
         html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
             background-color: #0A1327 !important;
@@ -241,21 +237,12 @@ if is_dark:
             border-right: 1px solid rgba(56, 189, 248, 0.15) !important;
         }
 
-        [data-testid="stSidebar"] *, 
-        [data-testid="stSidebar"] label, 
-        [data-testid="stSidebar"] p, 
-        [data-testid="stSidebar"] span, 
-        [data-testid="stSidebar"] div {
+        [data-testid="stSidebar"] *, [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] div {
             color: #F8FAFC !important;
         }
 
-        /* CHO PHÉP NÚT BÊN SIDEBAR XUỐNG DÒNG ĐẦY ĐỦ THAY VÌ ẨN KÝ TỰ */
         [data-testid="stSidebar"] .stButton > button {
-            white-space: normal !important;
-            word-wrap: break-word !important;
-            text-align: left !important;
-            height: auto !important;
-            padding: 8px 12px !important;
+            white-space: normal !important; word-wrap: break-word !important; text-align: left !important; height: auto !important; padding: 8px 12px !important;
         }
 
         .stTextInput > div > div > input {
@@ -265,10 +252,6 @@ if is_dark:
             border-radius: 9999px !important;
             padding: 12px 24px !important;
             font-size: 14px !important;
-        }
-
-        .stTextInput > div > div > input::placeholder {
-            color: #94A3B8 !important;
         }
 
         .stButton > button, [data-testid="stFormSubmitButton"] > button {
@@ -281,14 +264,7 @@ if is_dark:
         }
 
         .hero-title {
-            text-align: center;
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            font-size: 28px;
-            font-weight: 800;
-            color: #F8FAFC;
-            margin-bottom: 20px;
-            white-space: normal !important;
-            word-wrap: break-word !important;
+            text-align: center; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 28px; font-weight: 800; color: #F8FAFC; margin-bottom: 20px; white-space: normal !important; word-wrap: break-word !important;
         }
 
         .telemetry-card {
@@ -299,24 +275,9 @@ if is_dark:
             padding: 18px;
             box-shadow: 0 12px 32px rgba(11, 19, 38, 0.5);
         }
-        .telemetry-label {
-            font-size: 11px;
-            font-weight: 700;
-            color: #94A3B8 !important;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .telemetry-value {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            font-size: 26px;
-            font-weight: 700;
-            color: #F8FAFC !important;
-            margin: 6px 0;
-        }
-        .telemetry-sub {
-            font-size: 12px;
-            color: #38BDF8 !important;
-        }
+        .telemetry-label { font-size: 11px; font-weight: 700; color: #94A3B8 !important; text-transform: uppercase; letter-spacing: 0.05em; }
+        .telemetry-value { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 26px; font-weight: 700; color: #F8FAFC !important; margin: 6px 0; }
+        .telemetry-sub { font-size: 12px; color: #38BDF8 !important; }
 
         .user-msg-card {
             background: rgba(56, 189, 248, 0.15);
@@ -340,12 +301,101 @@ if is_dark:
         }
         
         .safe-box {
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid rgba(16, 185, 129, 0.4);
-            border-left: 4px solid #10B981;
-            border-radius: 16px;
-            padding: 18px;
-            color: #F8FAFC !important;
+            background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); border-left: 4px solid #10B981; border-radius: 16px; padding: 18px; color: #F8FAFC !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+else:
+    # DESIGN LIGHT MODE HIỆN ĐẠI (NEUMORPHISM / GLASS LIGHT)
+    st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
+        .block-container { padding-top: 2rem !important; padding-bottom: 2rem !important; }
+
+        html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+            background-color: #F1F5F9 !important;
+            color: #0F172A !important;
+            font-family: 'Inter', sans-serif;
+        }
+
+        #MainMenu, footer {visibility: hidden;}
+
+        [data-testid="stSidebar"] {
+            background-color: #FFFFFF !important;
+            border-right: 1px solid #E2E8F0 !important;
+            box-shadow: 4px 0 24px rgba(0,0,0,0.02) !important;
+        }
+
+        [data-testid="stSidebar"] *, [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] div {
+            color: #0F172A !important;
+        }
+
+        [data-testid="stSidebar"] .stButton > button {
+            white-space: normal !important; word-wrap: break-word !important; text-align: left !important; height: auto !important; padding: 8px 12px !important; background: #F8FAFC !important; border: 1px solid #E2E8F0 !important;
+        }
+
+        .stTextInput > div > div > input {
+            background-color: #FFFFFF !important;
+            border: 1px solid #CBD5E1 !important;
+            color: #0F172A !important;
+            border-radius: 9999px !important;
+            padding: 12px 24px !important;
+            font-size: 14px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
+        }
+
+        .stButton > button, [data-testid="stFormSubmitButton"] > button {
+            background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%) !important;
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+            border: none !important;
+            border-radius: 9999px !important;
+            padding: 8px 20px !important;
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3) !important;
+        }
+
+        .hero-title {
+            text-align: center; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 28px; font-weight: 800; color: #0F172A; margin-bottom: 20px; white-space: normal !important; word-wrap: break-word !important;
+        }
+
+        /* NÂNG CẤP CARD THÔNG SỐ SANG TRỌNG CHO LIGHT MODE */
+        .telemetry-card {
+            background: #FFFFFF !important;
+            border: 1px solid #E2E8F0 !important;
+            border-radius: 16px !important;
+            padding: 18px !important;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05) !important;
+        }
+        .telemetry-label { font-size: 11px; font-weight: 700; color: #64748B !important; text-transform: uppercase; letter-spacing: 0.05em; }
+        .telemetry-value { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 26px; font-weight: 800; color: #0F172A !important; margin: 6px 0; }
+        .telemetry-sub { font-size: 12px; font-weight: 600; color: #0284C7 !important; }
+
+        .user-msg-card {
+            background: #E0F2FE !important;
+            border: 1px solid #BAE6FD !important;
+            border-radius: 16px !important;
+            padding: 14px 18px !important;
+            margin-top: 15px !important;
+            color: #0369A1 !important;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.05) !important;
+        }
+
+        .ai-card {
+            background: #FFFFFF !important;
+            border: 1px solid #E2E8F0 !important;
+            border-left: 5px solid #0284C7 !important;
+            border-radius: 16px !important;
+            padding: 18px !important;
+            margin-top: 10px !important;
+            margin-bottom: 20px !important;
+            line-height: 1.6 !important;
+            color: #0F172A !important;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04) !important;
+        }
+        
+        .safe-box {
+            background: #ECFDF5 !important; border: 1px solid #A7F3D0 !important; border-left: 5px solid #10B981 !important; border-radius: 16px !important; padding: 18px !important; color: #065F46 !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -553,7 +603,6 @@ else:
     current_thread = st.session_state.threads_store.get(active_tid, {"chats": [], "title": "Cuộc trò chuyện mới"})
     current_chats = current_thread.get("chats", [])
 
-    # HIỂN THỊ ĐẦY ĐỦ TIÊU ĐỀ KHÔNG CẮT CHỮ
     st.markdown(f'<div class="hero-title">{current_thread.get("title", "WeatherAI Pro")}</div>', unsafe_allow_html=True)
 
     for idx, chat in enumerate(current_chats):
@@ -575,7 +624,7 @@ else:
             loc_name = data["name"]
 
             highlight_color = "#00C2FF" if is_dark else "#0284C7"
-            badge_bg = "rgba(0, 194, 255, 0.15)" if is_dark else "#F0F9FF"
+            badge_bg = "rgba(0, 194, 255, 0.15)" if is_dark else "#E0F2FE"
             badge_text = "#38BDF8" if is_dark else "#0369A1"
 
             curr_temp = df_full.iloc[0]["Nhiệt độ (°C)"]
@@ -605,8 +654,8 @@ else:
                 st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">LƯỢNG MƯA 24H & ĐỘ ẨM</div><div class="telemetry-value">{total_rain_24h:.1f} mm</div><div class="telemetry-sub">Độ ẩm {curr_hum}%</div></div>', unsafe_allow_html=True)
 
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=df_filtered["Thời gian"], y=df_filtered["Nhiệt độ (°C)"], mode="lines+markers", name="Nhiệt độ (°C)", line=dict(color="#00C2FF", width=3)))
-            fig.add_trace(go.Bar(x=df_filtered["Thời gian"], y=df_filtered["Mưa (mm)"], name="Lượng mưa (mm)", marker_color="rgba(56, 189, 248, 0.5)", yaxis="y2"))
+            fig.add_trace(go.Scatter(x=df_filtered["Thời gian"], y=df_filtered["Nhiệt độ (°C)"], mode="lines+markers", name="Nhiệt độ (°C)", line=dict(color="#00C2FF" if is_dark else "#0284C7", width=3)))
+            fig.add_trace(go.Bar(x=df_filtered["Thời gian"], y=df_filtered["Mưa (mm)"], name="Lượng mưa (mm)", marker_color="rgba(56, 189, 248, 0.5)" if is_dark else "rgba(2, 132, 199, 0.3)", yaxis="y2"))
             
             fig.update_layout(
                 template="plotly_dark" if is_dark else "plotly_white",
@@ -664,7 +713,6 @@ else:
 
             if new_entry:
                 if not current_chats:
-                    # LƯU TRỌN BẢN TIÊU ĐỀ KHÔNG CẮT NGẮN [:25]
                     current_thread["title"] = query_text
 
                 current_chats.append(new_entry)
