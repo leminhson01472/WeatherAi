@@ -137,7 +137,7 @@ except Exception:
     user_gps = None
 
 # ==========================================
-# 3. SIDEBAR NAVIGATION
+# 3. SIDEBAR NAVIGATION (HIỂN THỊ ĐẦY ĐỦ TIÊU ĐỀ)
 # ==========================================
 with st.sidebar:
     st.markdown("""
@@ -163,11 +163,11 @@ with st.sidebar:
     
     for tid in sorted_thread_ids:
         thread_info = st.session_state.threads_store[tid]
-        title = thread_info.get("title", "Cuộc trò chuyện mới")
+        # HIỂN THỊ NGUYÊN BẢN FULL TIÊU ĐỀ KHÔNG RÚT GỌN
+        full_title = thread_info.get("title", "Cuộc trò chuyện mới")
         is_selected = (tid == st.session_state.active_thread_id)
         
-        display_title = (title[:22] + '...') if len(title) > 22 else title
-        btn_label = f"💬 {display_title}" if not is_selected else f"🔹 {display_title}"
+        btn_label = f"💬 {full_title}" if not is_selected else f"🔹 {full_title}"
         
         if st.button(btn_label, key=f"btn_thread_{tid}", use_container_width=True):
             st.session_state.active_thread_id = tid
@@ -249,6 +249,15 @@ if is_dark:
             color: #F8FAFC !important;
         }
 
+        /* CHO PHÉP NÚT BÊN SIDEBAR XUỐNG DÒNG ĐẦY ĐỦ THAY VÌ ẨN KÝ TỰ */
+        [data-testid="stSidebar"] .stButton > button {
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            text-align: left !important;
+            height: auto !important;
+            padding: 8px 12px !important;
+        }
+
         .stTextInput > div > div > input {
             background-color: rgba(18, 27, 47, 0.85) !important;
             border: 1px solid rgba(56, 189, 248, 0.3) !important;
@@ -278,6 +287,8 @@ if is_dark:
             font-weight: 800;
             color: #F8FAFC;
             margin-bottom: 20px;
+            white-space: normal !important;
+            word-wrap: break-word !important;
         }
 
         .telemetry-card {
@@ -542,6 +553,7 @@ else:
     current_thread = st.session_state.threads_store.get(active_tid, {"chats": [], "title": "Cuộc trò chuyện mới"})
     current_chats = current_thread.get("chats", [])
 
+    # HIỂN THỊ ĐẦY ĐỦ TIÊU ĐỀ KHÔNG CẮT CHỮ
     st.markdown(f'<div class="hero-title">{current_thread.get("title", "WeatherAI Pro")}</div>', unsafe_allow_html=True)
 
     for idx, chat in enumerate(current_chats):
@@ -566,13 +578,11 @@ else:
             badge_bg = "rgba(0, 194, 255, 0.15)" if is_dark else "#F0F9FF"
             badge_text = "#38BDF8" if is_dark else "#0369A1"
 
-            # TÍNH TOÁN DỮ LIỆU ĐO ĐẠC CHO 4 THẺ TELEMETRY CARDS
             curr_temp = df_full.iloc[0]["Nhiệt độ (°C)"]
             curr_feel = df_full.iloc[0]["Cảm giác (°C)"]
             curr_hum = df_full.iloc[0]["Độ ẩm (%)"]
             total_rain_24h = df_full.head(8)["Mưa (mm)"].sum()
 
-            # 1. TIÊU ĐỀ KHU VỰC VÀ BADGE TỌA ĐỘ GPS
             st.markdown(f"""
                 <div style="display: flex; align-items: center; gap: 10px; margin: 15px 0 10px 0;">
                     <span style="font-size: 18px; font-weight: 700;">
@@ -584,7 +594,6 @@ else:
                 </div>
             """, unsafe_allow_html=True)
 
-            # 2. KHÔI PHỤC 4 THẺ THÔNG SỐ KHÍ TƯỢNG (TELEMETRY CARDS)
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 st.markdown('<div class="telemetry-card"><div class="telemetry-label">ĐỘ CHÍNH XÁC AI</div><div class="telemetry-value">96.8%</div><div class="telemetry-sub">RMS: 0.42°C</div></div>', unsafe_allow_html=True)
@@ -595,7 +604,6 @@ else:
             with c4:
                 st.markdown(f'<div class="telemetry-card"><div class="telemetry-label">LƯỢNG MƯA 24H & ĐỘ ẨM</div><div class="telemetry-value">{total_rain_24h:.1f} mm</div><div class="telemetry-sub">Độ ẩm {curr_hum}%</div></div>', unsafe_allow_html=True)
 
-            # 3. BIỂU ĐỒ DIỄN BIẾN NHIỆT ĐỘ & LƯỢNG MƯA
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=df_filtered["Thời gian"], y=df_filtered["Nhiệt độ (°C)"], mode="lines+markers", name="Nhiệt độ (°C)", line=dict(color="#00C2FF", width=3)))
             fig.add_trace(go.Bar(x=df_filtered["Thời gian"], y=df_filtered["Mưa (mm)"], name="Lượng mưa (mm)", marker_color="rgba(56, 189, 248, 0.5)", yaxis="y2"))
@@ -614,7 +622,6 @@ else:
             st.plotly_chart(fig, use_container_width=True, key=f"fig_{idx}", config={'displayModeBar': False})
             st.markdown(f'<div class="ai-card"><b>🤖 Phân tích WeatherAI:</b><br>{chat["report"]}</div>', unsafe_allow_html=True)
 
-    # Ô nhập liệu chat (Enter để gửi & tự động xóa ô text)
     st.write("---")
     with st.form(key="chat_form", clear_on_submit=True):
         col_input, col_btn = st.columns([5, 1])
@@ -657,7 +664,8 @@ else:
 
             if new_entry:
                 if not current_chats:
-                    current_thread["title"] = query_text[:25] + ("..." if len(query_text) > 25 else "")
+                    # LƯU TRỌN BẢN TIÊU ĐỀ KHÔNG CẮT NGẮN [:25]
+                    current_thread["title"] = query_text
 
                 current_chats.append(new_entry)
                 current_thread["chats"] = current_chats
