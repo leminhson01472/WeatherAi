@@ -268,7 +268,7 @@ else:
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 5. HÀM XỬ LÝ DỮ LIỆU & AI (BẮT BUỘC TÊN ĐỊA DANH VIỆT NAM)
+# 5. HÀM XỬ LÝ DỮ LIỆU & AI (ÉP BẮT BUỘC HIỂN THỊ CẤP XÃ/PHƯỜNG, HUYỆN/QUẬN)
 # ==========================================
 def remove_accents(input_str):
     nfkd_form = unicodedata.normalize('NFKD', input_str)
@@ -304,7 +304,7 @@ def fetch_weather_by_coords(lat, lon, fallback_name=None):
     display_name = None
     
     try:
-        # Lấy địa danh chính xác bằng BigDataCloud Reverse Geocode
+        # Lấy địa danh chính xác tới tận Cấp Xã/Phường, Huyện/Quận bằng BigDataCloud
         geo_detail_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lon}&localityLanguage=vi"
         res_geo = requests.get(geo_detail_url, timeout=5).json()
         
@@ -328,9 +328,8 @@ def fetch_weather_by_coords(lat, lon, fallback_name=None):
     if not display_name and fallback_name:
         display_name = fallback_name
         
-    # NẾU KHÔNG CÓ TÊN CHI TIẾT TỪ REVERSE GEOCODE THÌ MẶC ĐỊNH SỬ DỤNG TP. HỒ CHÍ MINH (KHÔNG BAO GIỜ HIỂN THỊ CHUỖI VỊ TRÍ GPS)
     if not display_name:
-        display_name = "Thành phố Hồ Chí Minh, Việt Nam"
+        display_name = "Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh"
 
     forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={WEATHER_KEY}&units=metric&lang=vi"
     try:
@@ -426,12 +425,12 @@ def generate_ai_report(user_question, location_name, df_weather, target_hours):
 Bạn là WeatherAI Intelligence Pro - Trợ lý Khí tượng AI cao cấp.
 Thời gian hệ thống hiện tại: {today_str}.
 
-DƯỚI ĐÂY LÀ BẢNG DỮ LIỆU KHÍ TƯỢNG TRỰC TIẾP TỪ VỆ TINH TRONG {target_hours} GIỜ TỚI TẠI KHU VỰC ĐỊA DANH CỤ THỂ: '{location_name}':
+DƯỚI ĐÂY LÀ BẢNG DỮ LIỆU KHÍ TƯỢNG TRỰC TIẾP TỪ VỆ TINH TRONG {target_hours} GIỜ TỚI TẠI KHU VỰC HÀNH CHÍNH CỤ THỂ: '{location_name}':
 {weather_summary}
 
 QUY TẮC PHẢN HỒI NGHÊM NGẶT:
-1. NGAY TRONG CÂU MỞ ĐẦU, BẠN PHẢI GHI RÕ TÊN ĐỊA DANH HÀNH CHÍNH (Ví dụ: "Dựa trên dữ liệu thời tiết tại {location_name}...").
-2. CẤM dùng các cụm từ mơ hồ như: "Vị trí GPS", "Tọa độ", "Gần trung tâm". Hãy trích dẫn trực tiếp tên địa danh '{location_name}'.
+1. NGAY TRONG CÂU MỞ ĐẦU: Bạn BẮT BUỘC phải trích dẫn đầy đủ tên đơn vị hành chính bao gồm CẤP PHƯỜNG/XÃ, QUẬN/HUYỆN, TỈNH/THÀNH PHỐ là "{location_name}". (Ví dụ: "Dựa trên dữ liệu thời tiết thực tế tại {location_name}...").
+2. TUYỆT ĐỐI CẤM dùng các từ chung chung như: "Vị trí GPS", "Tọa độ", "Gần trung tâm", "Thành phố Hồ Chí Minh" (nếu đã có thông tin Phường/Quận). Phải ghi rõ danh xưng địa danh '{location_name}'.
 3. Dữ liệu trên là DỮ LIỆU THỜI GIAN THỰC ĐƯỢC CẤP TỪ HỆ THỐNG API. Tuyệt đối KHÔNG ĐƯỢC từ chối trả lời.
 4. Trả lời trực tiếp câu hỏi người dùng: "{user_question}".
 """
