@@ -63,13 +63,17 @@ MODEL = "gpt-4o"
 USER_STORAGE_KEY = f"weatherai_pro_threads_{user_email.replace('@', '_at_').replace('.', '_')}"
 
 # ==========================================
-# 2. ĐỒNG BỘ LOCALSTORAGE CÁC PHIÊN TRÒ CHUYỆN
+# 2. ĐỒNG BỘ LOCALSTORAGE BẢO VỆ CHỐNG MẤT DỮ LIỆU KHI F5
 # ==========================================
 if "threads_store" not in st.session_state:
     st.session_state.threads_store = {}
 
 if "active_thread_id" not in st.session_state:
     st.session_state.active_thread_id = None
+
+# CỜ BẢO VỆ CỰC KỲ QUAN TRỌNG CHỐNG ĐÈ DỮ LIỆU RỖNG
+if "storage_loaded" not in st.session_state:
+    st.session_state.storage_loaded = False
 
 local_storage_js = f"""
 <script>
@@ -89,30 +93,35 @@ local_storage_js = f"""
             }}, '*');
         }}
     }}
-    setTimeout(syncFromWebStorage, 300);
+    setTimeout(syncFromWebStorage, 200);
 </script>
 """
 
 web_storage_data = components.html(local_storage_js, height=0)
 
-if web_storage_data and isinstance(web_storage_data, str) and not st.session_state.threads_store:
+# Đọc dữ liệu từ Web LocalStorage vào Session State nếu chưa nạp
+if web_storage_data and isinstance(web_storage_data, str) and not st.session_state.storage_loaded:
     try:
         loaded_threads = json.loads(web_storage_data)
         if isinstance(loaded_threads, dict):
             st.session_state.threads_store = loaded_threads
+            st.session_state.storage_loaded = True
             if loaded_threads and not st.session_state.active_thread_id:
                 st.session_state.active_thread_id = list(loaded_threads.keys())[-1]
+            st.rerun()
     except Exception:
         pass
 
 def save_threads_to_web():
-    updated_json = json.dumps(st.session_state.threads_store, ensure_ascii=False)
-    save_js = f"""
-    <script>
-        localStorage.setItem('{USER_STORAGE_KEY}', {json.dumps(updated_json)});
-    </script>
-    """
-    components.html(save_js, height=0)
+    # Chỉ cho phép ghi lưu nếu đã đọc thành công từ LocalStorage trước đó (Chống đè rỗng khi F5)
+    if st.session_state.storage_loaded:
+        updated_json = json.dumps(st.session_state.threads_store, ensure_ascii=False)
+        save_js = f"""
+        <script>
+            localStorage.setItem('{USER_STORAGE_KEY}', {json.dumps(updated_json)});
+        </script>
+        """
+        components.html(save_js, height=0)
 
 def create_new_thread():
     new_id = f"chat_{int(datetime.now().timestamp() * 1000)}"
@@ -124,10 +133,10 @@ def create_new_thread():
     st.session_state.active_thread_id = new_id
     save_threads_to_web()
 
-if not st.session_state.threads_store:
+if st.session_state.storage_loaded and not st.session_state.threads_store:
     create_new_thread()
 
-if not st.session_state.active_thread_id or st.session_state.active_thread_id not in st.session_state.threads_store:
+if st.session_state.threads_store and (not st.session_state.active_thread_id or st.session_state.active_thread_id not in st.session_state.threads_store):
     st.session_state.active_thread_id = list(st.session_state.threads_store.keys())[-1]
 
 try:
@@ -214,189 +223,50 @@ with st.sidebar:
             st.logout()
 
 # ==========================================
-# 4. DYNAMIC CSS STYLES (DARK & LIGHT HIGH-END)
+# 4. DYNAMIC CSS STYLES
 # ==========================================
 if is_dark:
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
-
         .block-container { padding-top: 2rem !important; padding-bottom: 2rem !important; }
-
-        html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-            background-color: #0A1327 !important;
-            color: #F8FAFC !important;
-            font-family: 'Inter', sans-serif;
-        }
-
+        html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] { background-color: #0A1327 !important; color: #F8FAFC !important; font-family: 'Inter', sans-serif; }
         #MainMenu, footer {visibility: hidden;}
-
-        [data-testid="stSidebar"] {
-            background-color: rgba(5, 14, 33, 0.9) !important;
-            backdrop-filter: blur(20px) !important;
-            border-right: 1px solid rgba(56, 189, 248, 0.15) !important;
-        }
-
-        [data-testid="stSidebar"] *, [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] div {
-            color: #F8FAFC !important;
-        }
-
-        [data-testid="stSidebar"] .stButton > button {
-            white-space: normal !important; word-wrap: break-word !important; text-align: left !important; height: auto !important; padding: 8px 12px !important;
-        }
-
-        .stTextInput > div > div > input {
-            background-color: rgba(18, 27, 47, 0.85) !important;
-            border: 1px solid rgba(56, 189, 248, 0.3) !important;
-            color: #FFFFFF !important;
-            border-radius: 9999px !important;
-            padding: 12px 24px !important;
-            font-size: 14px !important;
-        }
-
-        .stButton > button, [data-testid="stFormSubmitButton"] > button {
-            background: linear-gradient(135deg, #00C2FF 0%, #0284C7 100%) !important;
-            color: #0A1327 !important;
-            font-weight: 700 !important;
-            border: none !important;
-            border-radius: 9999px !important;
-            padding: 8px 20px !important;
-        }
-
-        .hero-title {
-            text-align: center; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 28px; font-weight: 800; color: #F8FAFC; margin-bottom: 20px; white-space: normal !important; word-wrap: break-word !important;
-        }
-
-        .telemetry-card {
-            background: rgba(24, 35, 60, 0.75);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(56, 189, 248, 0.18);
-            border-radius: 16px;
-            padding: 18px;
-            box-shadow: 0 12px 32px rgba(11, 19, 38, 0.5);
-        }
+        [data-testid="stSidebar"] { background-color: rgba(5, 14, 33, 0.9) !important; backdrop-filter: blur(20px) !important; border-right: 1px solid rgba(56, 189, 248, 0.15) !important; }
+        [data-testid="stSidebar"] *, [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] div { color: #F8FAFC !important; }
+        [data-testid="stSidebar"] .stButton > button { white-space: normal !important; word-wrap: break-word !important; text-align: left !important; height: auto !important; padding: 8px 12px !important; }
+        .stTextInput > div > div > input { background-color: rgba(18, 27, 47, 0.85) !important; border: 1px solid rgba(56, 189, 248, 0.3) !important; color: #FFFFFF !important; border-radius: 9999px !important; padding: 12px 24px !important; font-size: 14px !important; }
+        .stButton > button, [data-testid="stFormSubmitButton"] > button { background: linear-gradient(135deg, #00C2FF 0%, #0284C7 100%) !important; color: #0A1327 !important; font-weight: 700 !important; border: none !important; border-radius: 9999px !important; padding: 8px 20px !important; }
+        .hero-title { text-align: center; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 28px; font-weight: 800; color: #F8FAFC; margin-bottom: 20px; white-space: normal !important; word-wrap: break-word !important; }
+        .telemetry-card { background: rgba(24, 35, 60, 0.75); backdrop-filter: blur(16px); border: 1px solid rgba(56, 189, 248, 0.18); border-radius: 16px; padding: 18px; box-shadow: 0 12px 32px rgba(11, 19, 38, 0.5); }
         .telemetry-label { font-size: 11px; font-weight: 700; color: #94A3B8 !important; text-transform: uppercase; letter-spacing: 0.05em; }
         .telemetry-value { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 26px; font-weight: 700; color: #F8FAFC !important; margin: 6px 0; }
         .telemetry-sub { font-size: 12px; color: #38BDF8 !important; }
-
-        .user-msg-card {
-            background: rgba(56, 189, 248, 0.15);
-            border: 1px solid rgba(56, 189, 248, 0.3);
-            border-radius: 16px;
-            padding: 14px 18px;
-            margin-top: 15px;
-            color: #F8FAFC !important;
-        }
-
-        .ai-card {
-            background: rgba(18, 27, 47, 0.85);
-            border: 1px solid rgba(0, 194, 255, 0.35);
-            border-left: 4px solid #00C2FF;
-            border-radius: 16px;
-            padding: 18px;
-            margin-top: 10px;
-            margin-bottom: 20px;
-            line-height: 1.6;
-            color: #F8FAFC !important;
-        }
-        
-        .safe-box {
-            background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); border-left: 4px solid #10B981; border-radius: 16px; padding: 18px; color: #F8FAFC !important;
-        }
+        .user-msg-card { background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 16px; padding: 14px 18px; margin-top: 15px; color: #F8FAFC !important; }
+        .ai-card { background: rgba(18, 27, 47, 0.85); border: 1px solid rgba(0, 194, 255, 0.35); border-left: 4px solid #00C2FF; border-radius: 16px; padding: 18px; margin-top: 10px; margin-bottom: 20px; line-height: 1.6; color: #F8FAFC !important; }
+        .safe-box { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); border-left: 4px solid #10B981; border-radius: 16px; padding: 18px; color: #F8FAFC !important; }
         </style>
     """, unsafe_allow_html=True)
 else:
-    # DESIGN LIGHT MODE HIỆN ĐẠI (NEUMORPHISM / GLASS LIGHT)
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
-
         .block-container { padding-top: 2rem !important; padding-bottom: 2rem !important; }
-
-        html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-            background-color: #F1F5F9 !important;
-            color: #0F172A !important;
-            font-family: 'Inter', sans-serif;
-        }
-
+        html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] { background-color: #F1F5F9 !important; color: #0F172A !important; font-family: 'Inter', sans-serif; }
         #MainMenu, footer {visibility: hidden;}
-
-        [data-testid="stSidebar"] {
-            background-color: #FFFFFF !important;
-            border-right: 1px solid #E2E8F0 !important;
-            box-shadow: 4px 0 24px rgba(0,0,0,0.02) !important;
-        }
-
-        [data-testid="stSidebar"] *, [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] div {
-            color: #0F172A !important;
-        }
-
-        [data-testid="stSidebar"] .stButton > button {
-            white-space: normal !important; word-wrap: break-word !important; text-align: left !important; height: auto !important; padding: 8px 12px !important; background: #F8FAFC !important; border: 1px solid #E2E8F0 !important;
-        }
-
-        .stTextInput > div > div > input {
-            background-color: #FFFFFF !important;
-            border: 1px solid #CBD5E1 !important;
-            color: #0F172A !important;
-            border-radius: 9999px !important;
-            padding: 12px 24px !important;
-            font-size: 14px !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
-        }
-
-        .stButton > button, [data-testid="stFormSubmitButton"] > button {
-            background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%) !important;
-            color: #FFFFFF !important;
-            font-weight: 700 !important;
-            border: none !important;
-            border-radius: 9999px !important;
-            padding: 8px 20px !important;
-            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3) !important;
-        }
-
-        .hero-title {
-            text-align: center; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 28px; font-weight: 800; color: #0F172A; margin-bottom: 20px; white-space: normal !important; word-wrap: break-word !important;
-        }
-
-        /* NÂNG CẤP CARD THÔNG SỐ SANG TRỌNG CHO LIGHT MODE */
-        .telemetry-card {
-            background: #FFFFFF !important;
-            border: 1px solid #E2E8F0 !important;
-            border-radius: 16px !important;
-            padding: 18px !important;
-            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05) !important;
-        }
+        [data-testid="stSidebar"] { background-color: #FFFFFF !important; border-right: 1px solid #E2E8F0 !important; box-shadow: 4px 0 24px rgba(0,0,0,0.02) !important; }
+        [data-testid="stSidebar"] *, [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] div { color: #0F172A !important; }
+        [data-testid="stSidebar"] .stButton > button { white-space: normal !important; word-wrap: break-word !important; text-align: left !important; height: auto !important; padding: 8px 12px !important; background: #F8FAFC !important; border: 1px solid #E2E8F0 !important; }
+        .stTextInput > div > div > input { background-color: #FFFFFF !important; border: 1px solid #CBD5E1 !important; color: #0F172A !important; border-radius: 9999px !important; padding: 12px 24px !important; font-size: 14px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important; }
+        .stButton > button, [data-testid="stFormSubmitButton"] > button { background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%) !important; color: #FFFFFF !important; font-weight: 700 !important; border: none !important; border-radius: 9999px !important; padding: 8px 20px !important; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3) !important; }
+        .hero-title { text-align: center; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 28px; font-weight: 800; color: #0F172A; margin-bottom: 20px; white-space: normal !important; word-wrap: break-word !important; }
+        .telemetry-card { background: #FFFFFF !important; border: 1px solid #E2E8F0 !important; border-radius: 16px !important; padding: 18px !important; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05) !important; }
         .telemetry-label { font-size: 11px; font-weight: 700; color: #64748B !important; text-transform: uppercase; letter-spacing: 0.05em; }
         .telemetry-value { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 26px; font-weight: 800; color: #0F172A !important; margin: 6px 0; }
         .telemetry-sub { font-size: 12px; font-weight: 600; color: #0284C7 !important; }
-
-        .user-msg-card {
-            background: #E0F2FE !important;
-            border: 1px solid #BAE6FD !important;
-            border-radius: 16px !important;
-            padding: 14px 18px !important;
-            margin-top: 15px !important;
-            color: #0369A1 !important;
-            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.05) !important;
-        }
-
-        .ai-card {
-            background: #FFFFFF !important;
-            border: 1px solid #E2E8F0 !important;
-            border-left: 5px solid #0284C7 !important;
-            border-radius: 16px !important;
-            padding: 18px !important;
-            margin-top: 10px !important;
-            margin-bottom: 20px !important;
-            line-height: 1.6 !important;
-            color: #0F172A !important;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04) !important;
-        }
-        
-        .safe-box {
-            background: #ECFDF5 !important; border: 1px solid #A7F3D0 !important; border-left: 5px solid #10B981 !important; border-radius: 16px !important; padding: 18px !important; color: #065F46 !important;
-        }
+        .user-msg-card { background: #E0F2FE !important; border: 1px solid #BAE6FD !important; border-radius: 16px !important; padding: 14px 18px !important; margin-top: 15px !important; color: #0369A1 !important; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.05) !important; }
+        .ai-card { background: #FFFFFF !important; border: 1px solid #E2E8F0 !important; border-left: 5px solid #0284C7 !important; border-radius: 16px !important; padding: 18px !important; margin-top: 10px !important; margin-bottom: 20px !important; line-height: 1.6 !important; color: #0F172A !important; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04) !important; }
+        .safe-box { background: #ECFDF5 !important; border: 1px solid #A7F3D0 !important; border-left: 5px solid #10B981 !important; border-radius: 16px !important; padding: 18px !important; color: #065F46 !important; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -410,8 +280,8 @@ def remove_accents(input_str):
 def parse_user_intent(user_question):
     prompt = f"""
 Phân tích câu hỏi người dùng và trả về định dạng JSON/Text ngắn gọn:
-1. Ý định (is_weather): Trả về 'STORM' nếu hỏi về siêu bão, bão, áp thấp. Trả về 'WEATHER' nếu người dùng hỏi tra cứu thời tiết địa phương. Trả về 'CHAT' nếu chỉ chào hỏi, tán gẫu.
-2. Tên địa điểm (location): Tên Tỉnh/Thành/Huyện/Xã/Phường. Trả về 'USE_GPS' nếu không nhắc tới địa danh.
+1. Ý định (is_weather): Trả về 'STORM' nếu hỏi về siêu bão, bão, áp thấp. Trả về 'WEATHER' nếu người dùng hỏi tra cứu thời tiết hoặc câu hỏi liên quan đến đời sống/chuẩn bị đồ đạc theo thời tiết (đi bộ, đi chơi, áo mưa,...). Trả về 'CHAT' nếu chỉ chào hỏi.
+2. Tên địa điểm (location): Nếu không ghi rõ tên địa danh trong câu hỏi, BẮT BUỘC TRẢ VỀ CỤM 'USE_GPS'.
 3. Khoảng thời gian (hours): Số giờ cần xem (24, 48, 72, 120). Mặc định là 120.
 
 Chỉ trả về 1 dòng duy nhất theo định dạng: LOẠI|TÊN_ĐỊA_ĐIỂM|SỐ_GIỜ
@@ -461,7 +331,7 @@ def fetch_weather_by_coords(lat, lon, fallback_name=None):
         display_name = fallback_name
         
     if not display_name:
-        display_name = f"Tọa độ ({lat:.2f}°N, {lon:.2f}°E)"
+        display_name = f"Vị trí GPS ({lat:.3f}°N, {lon:.3f}°E)"
 
     forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={WEATHER_KEY}&units=metric&lang=vi"
     try:
@@ -561,7 +431,7 @@ Dưới đây là BẢNG DỮ LIỆU KHÍ TƯỢNG DỰ BÁO TRỰC TIẾP TỪ 
 {weather_summary}
 
 QUY TẮC PHẢN HỒI NGHÊM NGẶT:
-1. NGAY TRONG CÂU MỞ ĐẦU, BẠN PHẢI MÔ TẢ CHI TIẾT ĐỊA DANH KHU VỰC CỤ THỂ (Ví dụ: "Tại [Tên Xã/Phường, Huyện/Quận, Tỉnh/Thành phố]...").
+1. NGAY TRONG CÂU MỞ ĐẦU, BẠN PHẢI MÔ TẢ CHI TIẾT ĐỊA DANH KHU VỰC CỤ THỂ (Ví dụ: "Dựa trên tọa độ GPS thực tế của bạn tại {location_name}...").
 2. Dữ liệu trên là DỮ LIỆU THỜI GIAN THỰC ĐƯỢC CẤP TỪ HỆ THỐNG RADAR/API. Tuyệt đối KHÔNG ĐƯỢC nói "dữ liệu chỉ cập nhật đến 2023" hay từ chối cung cấp thông tin.
 3. Phân tích chính xác xu hướng nhiệt độ, lượng mưa, độ ẩm và đưa ra lời khuyên thiết thực cho người dùng dựa trên đúng dữ liệu trên.
 4. Trả lời trực tiếp câu hỏi: "{user_question}".
@@ -698,7 +568,8 @@ else:
                 new_entry = {"type": "STORM", "question": query_text, "location": loc_target, "report": report, "storm_lat": storm_lat, "storm_lon": storm_lon}
 
             else:
-                if loc_target == "USE_GPS" and user_gps and "coords" in user_gps:
+                # Ép buộc dùng GPS thực tế nếu không có tên địa điểm trong câu hỏi
+                if (loc_target == "USE_GPS" or not loc_target) and user_gps and "coords" in user_gps:
                     data, err = fetch_weather_by_coords(user_gps["coords"]["latitude"], user_gps["coords"]["longitude"])
                 else:
                     target_place = loc_target if loc_target != "USE_GPS" else "Ho Chi Minh"
