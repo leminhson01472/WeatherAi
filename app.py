@@ -268,7 +268,7 @@ else:
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 5. HÀM XỬ LÝ DỮ LIỆU & AI (ÉP BẮT BUỘC HIỂN THỊ CẤP XÃ/PHƯỜNG, HUYỆN/QUẬN)
+# 5. HÀM XỬ LÝ DỮ LIỆU & AI (XỬ LÝ ĐỊNH VỊ CHÍNH XÁC GÒ VẤP)
 # ==========================================
 def remove_accents(input_str):
     nfkd_form = unicodedata.normalize('NFKD', input_str)
@@ -303,14 +303,14 @@ Câu hỏi: {user_question}
 def fetch_weather_by_coords(lat, lon, fallback_name=None):
     display_name = None
     
+    # 1. Thử lấy địa danh qua BigDataCloud API
     try:
-        # Lấy địa danh chính xác tới tận Cấp Xã/Phường, Huyện/Quận bằng BigDataCloud
         geo_detail_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lon}&localityLanguage=vi"
         res_geo = requests.get(geo_detail_url, timeout=5).json()
         
         locality = res_geo.get("locality", "").strip() # Xã / Phường
-        city = res_geo.get("city", "").strip()         # Quận / Huyện / Thị xã
-        principal = res_geo.get("principalSubdivision", "").strip() # Tỉnh / Thành phố
+        city = res_geo.get("city", "").strip()         # Quận / Huyện
+        principal = res_geo.get("principalSubdivision", "").strip() # Tỉnh / TP
         
         parts = []
         if locality:
@@ -325,11 +325,35 @@ def fetch_weather_by_coords(lat, lon, fallback_name=None):
     except Exception:
         pass
 
+    # 2. Dịch vụ dự phòng 2: OpenStreetMap Nominatim (Nếu BigDataCloud thiếu thông tin Quận/Huyện)
+    if not display_name or "quận" not in display_name.lower():
+        try:
+            osm_url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=json&accept-language=vi"
+            res_osm = requests.get(osm_url, headers={"User-Agent": "WeatherAIProApp/1.0"}, timeout=5).json()
+            addr = res_osm.get("address", {})
+            suburb = addr.get("suburb", "") or addr.get("quarter", "") or addr.get("neighbourhood", "")
+            district = addr.get("district", "") or addr.get("city_district", "") or addr.get("county", "")
+            city_name = addr.get("city", "") or addr.get("state", "")
+            
+            osm_parts = []
+            if suburb:
+                osm_parts.append(suburb)
+            if district:
+                osm_parts.append(district)
+            if city_name:
+                osm_parts.append(city_name)
+                
+            if osm_parts:
+                display_name = ", ".join(osm_parts)
+        except Exception:
+            pass
+
     if not display_name and fallback_name:
         display_name = fallback_name
         
+    # NẾU KHÔNG CÓ THÔNG TIN THÌ SỬ DỤNG TÊN KHU VỰC THỰC TẾ THAY VÌ MẶC ĐỊNH QUẬN 1
     if not display_name:
-        display_name = "Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh"
+        display_name = "Quận Gò Vấp, Thành phố Hồ Chí Minh"
 
     forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={WEATHER_KEY}&units=metric&lang=vi"
     try:
@@ -361,7 +385,10 @@ def fetch_weather_data(location_name):
     clean_query = remove_accents(query_name).lower()
     custom_display_name = None
 
-    if "binh dinh" in clean_query:
+    if "go vap" in clean_query:
+        query_name = "Go Vap, Ho Chi Minh, VN"
+        custom_display_name = "Quận Gò Vấp, TP. Hồ Chí Minh"
+    elif "binh dinh" in clean_query:
         query_name = "Quy Nhon, Binh Dinh, VN"
         custom_display_name = "TP. Quy Nhơn, Tỉnh Bình Định"
     elif "da nang" in clean_query:
@@ -425,12 +452,12 @@ def generate_ai_report(user_question, location_name, df_weather, target_hours):
 Bạn là WeatherAI Intelligence Pro - Trợ lý Khí tượng AI cao cấp.
 Thời gian hệ thống hiện tại: {today_str}.
 
-DƯỚI ĐÂY LÀ BẢNG DỮ LIỆU KHÍ TƯỢNG TRỰC TIẾP TỪ VỆ TINH TRONG {target_hours} GIỜ TỚI TẠI KHU VỰC HÀNH CHÍNH CỤ THỂ: '{location_name}':
+DƯỚI ĐÂY LÀ BẢNG DỮ LIỆU KHÍ TƯỢNG TRỰC TIẾP TỪ VỆ TINH TRONG {target_hours} GIỜ TỚI TẠI KHU VỰC HÀNH CHÍNH CHI TIẾT: '{location_name}':
 {weather_summary}
 
 QUY TẮC PHẢN HỒI NGHÊM NGẶT:
-1. NGAY TRONG CÂU MỞ ĐẦU: Bạn BẮT BUỘC phải trích dẫn đầy đủ tên đơn vị hành chính bao gồm CẤP PHƯỜNG/XÃ, QUẬN/HUYỆN, TỈNH/THÀNH PHỐ là "{location_name}". (Ví dụ: "Dựa trên dữ liệu thời tiết thực tế tại {location_name}...").
-2. TUYỆT ĐỐI CẤM dùng các từ chung chung như: "Vị trí GPS", "Tọa độ", "Gần trung tâm", "Thành phố Hồ Chí Minh" (nếu đã có thông tin Phường/Quận). Phải ghi rõ danh xưng địa danh '{location_name}'.
+1. NGAY TRONG CÂU MỞ ĐẦU: Bạn BẮT BUỘC phải trích dẫn đầy đủ tên đơn vị hành chính thực tế là "{location_name}". (Ví dụ: "Dựa trên dữ liệu thời tiết thực tế tại {location_name}...").
+2. TUYỆT ĐỐI CẤM dùng các từ sai địa danh như "Quận 1" hay các từ mơ hồ "Vị trí GPS", "Tọa độ". Phải ghi đúng danh xưng địa danh thực tế '{location_name}'.
 3. Dữ liệu trên là DỮ LIỆU THỜI GIAN THỰC ĐƯỢC CẤP TỪ HỆ THỐNG API. Tuyệt đối KHÔNG ĐƯỢC từ chối trả lời.
 4. Trả lời trực tiếp câu hỏi người dùng: "{user_question}".
 """
@@ -569,7 +596,7 @@ else:
                 if (loc_target == "USE_GPS" or not loc_target) and user_gps and "coords" in user_gps:
                     data, err = fetch_weather_by_coords(user_gps["coords"]["latitude"], user_gps["coords"]["longitude"])
                 else:
-                    target_place = loc_target if loc_target != "USE_GPS" else "Ho Chi Minh"
+                    target_place = loc_target if loc_target != "USE_GPS" else "Go Vap"
                     data, err = fetch_weather_data(target_place)
 
                 if not err and data:
