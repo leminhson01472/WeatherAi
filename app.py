@@ -427,14 +427,14 @@ def generate_ai_report(user_question, location_name, df_weather, target_hours):
 Bạn là WeatherAI Intelligence Pro - Trợ lý Khí tượng AI cao cấp.
 Thời gian hệ thống hiện tại: {today_str}.
 
-Dưới đây là BẢNG DỮ LIỆU KHÍ TƯỢNG DỰ BÁO TRỰC TIẾP TỪ VỆ TINH TRONG {target_hours} GIỜ TỚI TẠI KHU VỰC CHI TIẾT '{location_name}':
+DƯỚI ĐÂY LÀ BẢNG DỮ LIỆU KHÍ TƯỢNG TRỰC TIẾP TỪ VỆ TINH/RADAR CHO ĐỊA DANH THỰC TẾ TRÍCH XUẤT TỪ GPS: '{location_name}':
 {weather_summary}
 
 QUY TẮC PHẢN HỒI NGHÊM NGẶT:
-1. NGAY TRONG CÂU MỞ ĐẦU, BẠN PHẢI MÔ TẢ CHI TIẾT ĐỊA DANH KHU VỰC CỤ THỂ (Ví dụ: "Dựa trên tọa độ GPS thực tế của bạn tại {location_name}...").
-2. Dữ liệu trên là DỮ LIỆU THỜI GIAN THỰC ĐƯỢC CẤP TỪ HỆ THỐNG RADAR/API. Tuyệt đối KHÔNG ĐƯỢC nói "dữ liệu chỉ cập nhật đến 2023" hay từ chối cung cấp thông tin.
-3. Phân tích chính xác xu hướng nhiệt độ, lượng mưa, độ ẩm và đưa ra lời khuyên thiết thực cho người dùng dựa trên đúng dữ liệu trên.
-4. Trả lời trực tiếp câu hỏi: "{user_question}".
+1. NGAY CÂU MỞ ĐẦU: Phải gọi chính xác tên địa danh đầy đủ là "{location_name}". (Ví dụ: "Dựa trên dữ liệu thời tiết tại {location_name}...").
+2. TUYỆT ĐỐI CẤM dùng các cụm từ mơ hồ như: "gần trung tâm", "khu vực lân cận", "trung tâm thành phố". Phải trích dẫn đúng danh xưng địa danh '{location_name}'.
+3. Dữ liệu trên là DỮ LIỆU THỜI GIAN THỰC ĐƯỢC CẤP TỪ HỆ THỐNG API. Không được từ chối trả lời.
+4. Trả lời trực tiếp vào câu hỏi người dùng: "{user_question}".
 """
     try:
         res = client.chat.completions.create(
@@ -448,7 +448,6 @@ QUY TẮC PHẢN HỒI NGHÊM NGẶT:
         return res.choices[0].message.content.strip()
     except Exception as e:
         return f"⚠️ Không thể khởi tạo phân tích AI: {str(e)}"
-
 # ==========================================
 # 6. ĐIỀU HƯỚNG MÀN HÌNH CHÍNH
 # ==========================================
