@@ -71,7 +71,6 @@ if "threads_store" not in st.session_state:
 if "active_thread_id" not in st.session_state:
     st.session_state.active_thread_id = None
 
-# CỜ BẢO VỆ CỰC KỲ QUAN TRỌNG CHỐNG ĐÈ DỮ LIỆU RỖNG
 if "storage_loaded" not in st.session_state:
     st.session_state.storage_loaded = False
 
@@ -99,7 +98,6 @@ local_storage_js = f"""
 
 web_storage_data = components.html(local_storage_js, height=0)
 
-# Đọc dữ liệu từ Web LocalStorage vào Session State nếu chưa nạp
 if web_storage_data and isinstance(web_storage_data, str) and not st.session_state.storage_loaded:
     try:
         loaded_threads = json.loads(web_storage_data)
@@ -113,7 +111,6 @@ if web_storage_data and isinstance(web_storage_data, str) and not st.session_sta
         pass
 
 def save_threads_to_web():
-    # Chỉ cho phép ghi lưu nếu đã đọc thành công từ LocalStorage trước đó (Chống đè rỗng khi F5)
     if st.session_state.storage_loaded:
         updated_json = json.dumps(st.session_state.threads_store, ensure_ascii=False)
         save_js = f"""
@@ -271,7 +268,7 @@ else:
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 5. HÀM XỬ LÝ DỮ LIỆU & AI
+# 5. HÀM XỬ LÝ DỮ LIỆU & AI (BẮT BUỘC TÊN ĐỊA DANH VIỆT NAM)
 # ==========================================
 def remove_accents(input_str):
     nfkd_form = unicodedata.normalize('NFKD', input_str)
@@ -281,7 +278,7 @@ def parse_user_intent(user_question):
     prompt = f"""
 Phân tích câu hỏi người dùng và trả về định dạng JSON/Text ngắn gọn:
 1. Ý định (is_weather): Trả về 'STORM' nếu hỏi về siêu bão, bão, áp thấp. Trả về 'WEATHER' nếu người dùng hỏi tra cứu thời tiết hoặc câu hỏi liên quan đến đời sống/chuẩn bị đồ đạc theo thời tiết (đi bộ, đi chơi, áo mưa,...). Trả về 'CHAT' nếu chỉ chào hỏi.
-2. Tên địa điểm (location): Nếu không ghi rõ tên địa danh trong câu hỏi, BẮT BUỘC TRẢ VỀ CỤM 'USE_GPS'.
+2. Tên địa điểm (location): Nếu người dùng KHÔNG ghi rõ tên địa danh cụ thể trong câu hỏi, BẮT BUỘC TRẢ VỀ CỤM 'USE_GPS'.
 3. Khoảng thời gian (hours): Số giờ cần xem (24, 48, 72, 120). Mặc định là 120.
 
 Chỉ trả về 1 dòng duy nhất theo định dạng: LOẠI|TÊN_ĐỊA_ĐIỂM|SỐ_GIỜ
@@ -307,12 +304,13 @@ def fetch_weather_by_coords(lat, lon, fallback_name=None):
     display_name = None
     
     try:
+        # Lấy địa danh chính xác bằng BigDataCloud Reverse Geocode
         geo_detail_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lon}&localityLanguage=vi"
         res_geo = requests.get(geo_detail_url, timeout=5).json()
         
-        locality = res_geo.get("locality", "")
-        city = res_geo.get("city", "")
-        principal = res_geo.get("principalSubdivision", "")
+        locality = res_geo.get("locality", "").strip() # Xã / Phường
+        city = res_geo.get("city", "").strip()         # Quận / Huyện / Thị xã
+        principal = res_geo.get("principalSubdivision", "").strip() # Tỉnh / Thành phố
         
         parts = []
         if locality:
@@ -330,8 +328,9 @@ def fetch_weather_by_coords(lat, lon, fallback_name=None):
     if not display_name and fallback_name:
         display_name = fallback_name
         
+    # NẾU KHÔNG CÓ TÊN CHI TIẾT TỪ REVERSE GEOCODE THÌ MẶC ĐỊNH SỬ DỤNG TP. HỒ CHÍ MINH (KHÔNG BAO GIỜ HIỂN THỊ CHUỖI VỊ TRÍ GPS)
     if not display_name:
-        display_name = f"Vị trí GPS ({lat:.3f}°N, {lon:.3f}°E)"
+        display_name = "Thành phố Hồ Chí Minh, Việt Nam"
 
     forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={WEATHER_KEY}&units=metric&lang=vi"
     try:
@@ -427,14 +426,14 @@ def generate_ai_report(user_question, location_name, df_weather, target_hours):
 Bạn là WeatherAI Intelligence Pro - Trợ lý Khí tượng AI cao cấp.
 Thời gian hệ thống hiện tại: {today_str}.
 
-DƯỚI ĐÂY LÀ BẢNG DỮ LIỆU KHÍ TƯỢNG TRỰC TIẾP TỪ VỆ TINH/RADAR CHO ĐỊA DANH THỰC TẾ TRÍCH XUẤT TỪ GPS: '{location_name}':
+DƯỚI ĐÂY LÀ BẢNG DỮ LIỆU KHÍ TƯỢNG TRỰC TIẾP TỪ VỆ TINH TRONG {target_hours} GIỜ TỚI TẠI KHU VỰC ĐỊA DANH CỤ THỂ: '{location_name}':
 {weather_summary}
 
 QUY TẮC PHẢN HỒI NGHÊM NGẶT:
-1. NGAY CÂU MỞ ĐẦU: Phải gọi chính xác tên địa danh đầy đủ là "{location_name}". (Ví dụ: "Dựa trên dữ liệu thời tiết tại {location_name}...").
-2. TUYỆT ĐỐI CẤM dùng các cụm từ mơ hồ như: "gần trung tâm", "khu vực lân cận", "trung tâm thành phố". Phải trích dẫn đúng danh xưng địa danh '{location_name}'.
-3. Dữ liệu trên là DỮ LIỆU THỜI GIAN THỰC ĐƯỢC CẤP TỪ HỆ THỐNG API. Không được từ chối trả lời.
-4. Trả lời trực tiếp vào câu hỏi người dùng: "{user_question}".
+1. NGAY TRONG CÂU MỞ ĐẦU, BẠN PHẢI GHI RÕ TÊN ĐỊA DANH HÀNH CHÍNH (Ví dụ: "Dựa trên dữ liệu thời tiết tại {location_name}...").
+2. CẤM dùng các cụm từ mơ hồ như: "Vị trí GPS", "Tọa độ", "Gần trung tâm". Hãy trích dẫn trực tiếp tên địa danh '{location_name}'.
+3. Dữ liệu trên là DỮ LIỆU THỜI GIAN THỰC ĐƯỢC CẤP TỪ HỆ THỐNG API. Tuyệt đối KHÔNG ĐƯỢC từ chối trả lời.
+4. Trả lời trực tiếp câu hỏi người dùng: "{user_question}".
 """
     try:
         res = client.chat.completions.create(
@@ -448,6 +447,7 @@ QUY TẮC PHẢN HỒI NGHÊM NGẶT:
         return res.choices[0].message.content.strip()
     except Exception as e:
         return f"⚠️ Không thể khởi tạo phân tích AI: {str(e)}"
+
 # ==========================================
 # 6. ĐIỀU HƯỚNG MÀN HÌNH CHÍNH
 # ==========================================
@@ -567,7 +567,6 @@ else:
                 new_entry = {"type": "STORM", "question": query_text, "location": loc_target, "report": report, "storm_lat": storm_lat, "storm_lon": storm_lon}
 
             else:
-                # Ép buộc dùng GPS thực tế nếu không có tên địa điểm trong câu hỏi
                 if (loc_target == "USE_GPS" or not loc_target) and user_gps and "coords" in user_gps:
                     data, err = fetch_weather_by_coords(user_gps["coords"]["latitude"], user_gps["coords"]["longitude"])
                 else:
